@@ -1,9 +1,11 @@
 import asyncio
+import json
 import re
 import uuid
 import random
 from typing import AsyncGenerator
 
+import httpx
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -42,24 +44,18 @@ class LLMAgent:
     def __init__(self, config: AgentConfig):
         self.config = config
         self.name = config.name
-        self._client = None
+        self._anthropic_client = None
 
-    def _get_client(self):
-        if self._client:
-            return self._client
-
+    def _get_anthropic_client(self):
+        if self._anthropic_client:
+            return self._anthropic_client
+        from anthropic import AsyncAnthropic
         kwargs = {"api_key": self.config.api_key, "max_retries": 3, "timeout": 60.0}
         url = self.config.base_url.strip()
         if url:
             kwargs["base_url"] = url
-
-        if self.config.provider == "anthropic":
-            from anthropic import AsyncAnthropic
-            self._client = AsyncAnthropic(**kwargs)
-        else:
-            from openai import AsyncOpenAI
-            self._client = AsyncOpenAI(**kwargs)
-        return self._client
+        self._anthropic_client = AsyncAnthropic(**kwargs)
+        return self._anthropic_client
 
     def _build_system_prompt(self, topic: str, mode: str, other_names: list[str]) -> str:
         mode_label = MODE_LABELS.get(mode, "讨论")
@@ -102,9 +98,9 @@ class LLMAgent:
         self, history: list[dict], topic: str, mode: str, other_names: list[str]
     ) -> AsyncGenerator[str, None]:
         system_prompt, messages = self._build_messages(history, topic, mode, other_names)
-        client = self._get_client()
 
         if self.config.provider == "anthropic":
+            client = self._get_anthropic_client()
             async with client.messages.stream(
                 model=self.config.model,
                 max_tokens=500,
@@ -115,16 +111,35 @@ class LLMAgent:
                 async for text in stream.text_stream:
                     yield text
         else:
-            response = await client.chat.completions.create(
-                model=self.config.model,
-                messages=[{"role": "system", "content": system_prompt}] + messages,
-                max_tokens=500,
-                temperature=0.8,
-                stream=True,
-            )
-            async for chunk in response:
-                if chunk.choices and chunk.choices[0].delta.content:
-                    yield chunk.choices[0].delta.content
+            base = self.config.base_url.strip().rstrip("/") or "https://api.openai.com/v1"
+            url = f"{base}/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {self.config.api_key}",
+                "Content-Type": "application/json",
+            }
+            body = {
+                "model": self.config.model,
+                "messages": [{"role": "system", "content": system_prompt}] + messages,
+                "max_tokens": 500,
+                "temperature": 0.8,
+                "stream": True,
+            }
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                async with client.stream("POST", url, json=body, headers=headers) as resp:
+                    resp.raise_for_status()
+                    async for line in resp.aiter_lines():
+                        if not line.startswith("data: "):
+                            continue
+                        data = line[6:]
+                        if data == "[DONE]":
+                            break
+                        try:
+                            chunk = json.loads(data)
+                            content = chunk["choices"][0]["delta"].get("content") or ""
+                            if content:
+                                yield content
+                        except (json.JSONDecodeError, KeyError, IndexError):
+                            pass
 
 
 class Discussion:
