@@ -1,4 +1,5 @@
 import asyncio
+import re
 import uuid
 import random
 from typing import AsyncGenerator
@@ -272,10 +273,40 @@ async def test_agent(config: AgentConfig):
             )
             return {"success": True, "message": f"连接成功 — {config.model}"}
     except Exception as e:
-        msg = str(e)
-        if len(msg) > 200:
-            msg = msg[:200] + "..."
+        msg = _format_llm_error(str(e), url)
         return {"success": False, "message": msg}
+
+
+def _format_llm_error(raw: str, base_url: str | None) -> str:
+    low = raw.lower()
+    if "<html" in low or "<!doctype" in low:
+        title = ""
+        m = re.search(r"<title>(.*?)</title>", raw, re.IGNORECASE | re.DOTALL)
+        if m:
+            title = m.group(1).strip()
+        status = ""
+        m = re.search(r"\b(4\d{2}|5\d{2})\b", raw)
+        if m:
+            status = f"HTTP {m.group(1)}"
+        detail = " / ".join(filter(None, [status, title])) or "未知错误"
+        hint = (
+            f"API 返回了 HTML 错误页面（{detail}）。\n"
+            "请检查 Base URL 是否正确。OpenAI 兼容模式的 Base URL 应形如：\n"
+            "  https://xxx.com/v1\n"
+            "SDK 会自动拼接 /chat/completions，请勿填写完整路径。"
+        )
+        return hint
+    if "401" in raw or "unauthorized" in low or "invalid.*key" in low:
+        return "认证失败 — API Key 无效或已过期"
+    if "404" in raw or "not found" in low:
+        return f"模型或路径未找到 (404) — 请确认 Model 名称和 Base URL 是否正确"
+    if "429" in raw or "rate" in low:
+        return "请求频率超限 (429) — 请稍后再试"
+    if "connection" in low or "connect" in low:
+        return f"无法连接到 {base_url or '默认地址'} — 请检查网络或 Base URL"
+    if len(raw) > 300:
+        raw = raw[:300] + "..."
+    return raw
 
 
 @app.get("/")

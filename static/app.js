@@ -102,7 +102,7 @@ class AgentdTalking {
           </select>
         </div>
         <div class="agent-field">
-          <label>Base URL（留空使用默认）</label>
+          <label>Base URL（留空使用默认，填到 /v1 即可）</label>
           <input type="text" data-field="base_url" value="${agent.base_url}" placeholder="https://api.openai.com/v1">
         </div>
         <div class="agent-field">
