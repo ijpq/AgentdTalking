@@ -17,6 +17,8 @@
       <button class="icon-btn" id="toggleSidebar" title="收起面板">&#9776;</button>
     </div>
 
+    <div class="sidebar-scroll">
+
     <!-- Topic -->
     <div class="section-label">话题</div>
     <div class="config-block">
@@ -68,10 +70,8 @@
           <label>Model</label>
           <input type="text" id="globalModel" placeholder="gpt-4o">
         </div>
-        <div class="global-llm-row">
-          <div class="global-llm-hint">AI 生成参与者 &amp; 新增参与者时自动使用此配置</div>
-          <button class="test-global-btn" id="testGlobalBtn">测试连接</button>
-        </div>
+        <div class="global-llm-hint">AI 生成参与者 &amp; 新增参与者时自动使用此配置</div>
+        <button class="test-global-btn" id="testGlobalBtn">测试连接</button>
         <div class="global-test-result" id="globalTestResult"></div>
       </div>
     </div>
@@ -104,6 +104,8 @@
         <div class="search-hint">讨论开始前每位参与者各检索一次，共 <span id="searchCount">0</span> 次</div>
       </div>
     </div>
+
+    </div><!-- /sidebar-scroll -->
 
     <button id="startBtn" class="primary-btn">开始讨论</button>
 
