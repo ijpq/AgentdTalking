@@ -48,9 +48,17 @@ class AgentdTalking {
     document.getElementById("toggleSidebar").addEventListener("click", () => {
       document.getElementById("sidebar").classList.toggle("collapsed");
     });
+    document.getElementById("searchEnabled").addEventListener("change", (e) => {
+      document.getElementById("searchConfig").style.display = e.target.checked ? "block" : "none";
+    });
   }
 
   /* ── Agent Cards ── */
+
+  _updateSearchCount() {
+    const el = document.getElementById("searchCount");
+    if (el) el.textContent = this.agents.length;
+  }
 
   addAgent(defaults = {}) {
     const id = "agent_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
@@ -68,6 +76,7 @@ class AgentdTalking {
     this.agents.push(agent);
     this.agentColorMap[agent.name] = color;
     this._renderCard(agent);
+    this._updateSearchCount();
   }
 
   removeAgent(id) {
@@ -75,6 +84,7 @@ class AgentdTalking {
     if (idx < 0) return;
     this.agents.splice(idx, 1);
     document.getElementById(id)?.remove();
+    this._updateSearchCount();
   }
 
   _renderCard(agent) {
@@ -181,6 +191,8 @@ class AgentdTalking {
   }
 
   _collectConfig() {
+    const searchEnabled = document.getElementById("searchEnabled").checked;
+    const tavilyKey = document.getElementById("tavilyApiKey").value.trim();
     return {
       topic: document.getElementById("topic").value.trim(),
       mode: document.getElementById("mode").value,
@@ -193,6 +205,7 @@ class AgentdTalking {
         model: a.model,
         prompt: a.prompt,
       })),
+      search: searchEnabled && tavilyKey ? { provider: "tavily", api_key: tavilyKey } : null,
     };
   }
 
@@ -303,6 +316,17 @@ class AgentdTalking {
       case "max_rounds":
         this._finishMessage();
         this._appendSystem(evt.message);
+        break;
+
+      case "searching":
+        this._appendSystem(`🔍 ${evt.agent} 正在检索最新资料...`);
+        break;
+
+      case "search_done":
+        break;
+
+      case "search_failed":
+        this._appendSystem(`⚠️ ${evt.agent} 检索失败: ${evt.message}`);
         break;
 
       case "error":

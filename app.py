@@ -77,11 +77,38 @@ class AgentConfig(BaseModel):
     prompt: str = ""
 
 
+class SearchConfig(BaseModel):
+    provider: str = "tavily"
+    api_key: str = ""
+
+
 class DiscussionConfig(BaseModel):
     topic: str
     mode: str = "discussion"
     max_rounds: int = 10
     agents: list[AgentConfig] = []
+    search: SearchConfig | None = None
+
+
+async def _search_tavily(query: str, api_key: str) -> str:
+    body = {
+        "api_key": api_key,
+        "query": query,
+        "search_depth": "basic",
+        "max_results": 3,
+        "include_answer": True,
+    }
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        resp = await client.post("https://api.tavily.com/search", json=body)
+        resp.raise_for_status()
+        data = resp.json()
+    parts = []
+    if data.get("answer"):
+        parts.append(f"综合摘要：{data['answer'][:200]}")
+    for r in data.get("results", [])[:3]:
+        snippet = (r.get("content") or "")[:150]
+        parts.append(f"• {r['title']}: {snippet}")
+    return "\n".join(parts)
 
 
 class LLMAgent:
@@ -89,6 +116,7 @@ class LLMAgent:
         self.config = config
         self.name = config.name
         self._anthropic_client = None
+        self.search_result: str = ""
 
     def _get_anthropic_client(self):
         if self._anthropic_client:
@@ -104,7 +132,10 @@ class LLMAgent:
     def _build_system_prompt(self, topic: str, mode: str, other_names: list[str]) -> str:
         others = "、".join(other_names)
         template = MODE_SYSTEM_PROMPTS.get(mode, MODE_SYSTEM_PROMPTS["discussion"])
-        return template.format(persona=self.config.prompt, others=others, topic=topic)
+        prompt = template.format(persona=self.config.prompt, others=others, topic=topic)
+        if self.search_result:
+            prompt += f"\n\n## 你搜到的最新资料（来自互联网，仅供参考）\n{self.search_result}"
+        return prompt
 
     def _build_messages(self, history: list[dict], topic: str, mode: str, other_names: list[str]):
         system_prompt = self._build_system_prompt(topic, mode, other_names)
@@ -209,6 +240,19 @@ class Discussion:
 
     async def run(self):
         self.active = True
+
+        if self.config.search and self.config.search.api_key:
+            for agent in self.agents:
+                if not self.active:
+                    break
+                await self.emit("searching", agent=agent.name, query=self.config.topic)
+                try:
+                    agent.search_result = await _search_tavily(
+                        self.config.topic, self.config.search.api_key
+                    )
+                    await self.emit("search_done", agent=agent.name)
+                except Exception as e:
+                    await self.emit("search_failed", agent=agent.name, message=str(e))
 
         opening = MODE_OPENINGS.get(self.config.mode, MODE_OPENINGS["discussion"]).format(
             topic=self.config.topic

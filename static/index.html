@@ -41,6 +41,23 @@
 
       <div id="agentsList" class="agents-list"></div>
 
+      <div class="search-section">
+        <div class="search-section-header" id="searchToggleHeader">
+          <span class="search-section-title">搜索增强（Tavily）</span>
+          <label class="toggle-switch" onclick="event.stopPropagation()">
+            <input type="checkbox" id="searchEnabled">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div id="searchConfig" class="search-config-body" style="display:none">
+          <div class="agent-field">
+            <label>Tavily API Key</label>
+            <input type="password" id="tavilyApiKey" placeholder="tvly-...">
+          </div>
+          <div class="search-hint">开始前每位参与者各检索一次话题，共 <span id="searchCount">3</span> 次</div>
+        </div>
+      </div>
+
       <button id="startBtn" class="primary-btn">开始讨论</button>
     </aside>
 
