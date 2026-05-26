@@ -48,7 +48,7 @@ class LLMAgent:
         if self._client:
             return self._client
 
-        kwargs = {"api_key": self.config.api_key}
+        kwargs = {"api_key": self.config.api_key, "max_retries": 3, "timeout": 60.0}
         url = self.config.base_url.strip()
         if url:
             kwargs["base_url"] = url
@@ -279,14 +279,17 @@ async def test_agent(config: AgentConfig):
         }
 
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
+        async with httpx.AsyncClient(
+            timeout=30,
+            transport=httpx.AsyncHTTPTransport(retries=2),
+        ) as client:
             resp = await client.post(test_url, json=body, headers=headers)
-    except httpx.ConnectError:
-        return {"success": False, "message": f"无法连接到 {test_url}\n请检查网络或 Base URL 是否可达"}
+    except httpx.ConnectError as e:
+        return {"success": False, "message": f"无法连接到 {test_url}\n错误详情: {e}\n请检查网络或 Base URL 是否可达"}
     except httpx.TimeoutException:
-        return {"success": False, "message": f"请求超时: {test_url}"}
+        return {"success": False, "message": f"请求超时（30s）: {test_url}\n提示：可能是网络到目标服务器延迟过高"}
     except Exception as e:
-        return {"success": False, "message": f"请求失败: {e}\n请求地址: {test_url}"}
+        return {"success": False, "message": f"请求失败: {type(e).__name__}: {e}\n请求地址: {test_url}"}
 
     if resp.status_code == 200:
         return {"success": True, "message": f"连接成功 — {config.model}\n请求地址: {test_url}"}
