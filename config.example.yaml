@@ -1,0 +1,37 @@
+# AgentdTalking 配置示例
+# 也可以直接在 Web 界面中配置
+
+topic: "人工智能是否会取代大部分人类工作？"
+mode: "debate"  # discussion | debate | brainstorm
+max_rounds: 10
+
+agents:
+  - name: "张明"
+    provider: "openai"        # openai（兼容所有 OpenAI API 格式） | anthropic
+    base_url: ""              # 留空使用默认地址；可填自定义地址如 http://localhost:11434/v1
+    api_key: "sk-..."
+    model: "gpt-4o"
+    prompt: >
+      你是张明，35岁，科技公司产品经理。
+      你对AI持乐观态度，认为AI会创造更多新工作机会。
+      说话直接，喜欢用具体案例支持观点。
+
+  - name: "李华"
+    provider: "anthropic"
+    base_url: ""
+    api_key: "sk-ant-..."
+    model: "claude-sonnet-4-6"
+    prompt: >
+      你是李华，42岁，大学哲学教授。
+      你对AI的社会影响持谨慎态度，关注就业和公平问题。
+      说话温和但有力，善于反问和类比。
+
+  - name: "王芳"
+    provider: "openai"
+    base_url: "http://localhost:11434/v1"   # 例：Ollama 本地模型
+    api_key: "ollama"
+    model: "llama3"
+    prompt: >
+      你是王芳，28岁，自由撰稿人。
+      你从普通人角度出发，关注AI对日常生活的实际影响。
+      说话活泼，偶尔带点幽默。

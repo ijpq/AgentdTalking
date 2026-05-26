@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentdTalking</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <h1>AgentdTalking</h1>
+        <button class="icon-btn" id="toggleSidebar" title="收起面板">&#9776;</button>
+      </div>
+
+      <div class="config-section">
+        <label for="topic">话题</label>
+        <textarea id="topic" rows="3" placeholder="输入讨论话题...">人工智能是否会取代大部分人类工作？</textarea>
+      </div>
+
+      <div class="config-row">
+        <div class="config-section" style="flex:1">
+          <label for="mode">模式</label>
+          <select id="mode">
+            <option value="discussion">讨论</option>
+            <option value="debate">辩论</option>
+            <option value="brainstorm">头脑风暴</option>
+          </select>
+        </div>
+        <div class="config-section" style="flex:0 0 80px">
+          <label for="maxRounds">轮数</label>
+          <input type="number" id="maxRounds" value="10" min="1" max="50">
+        </div>
+      </div>
+
+      <div class="agents-header">
+        <h3>参与者</h3>
+        <button class="add-btn" id="addAgent">+ 添加</button>
+      </div>
+
+      <div id="agentsList" class="agents-list"></div>
+
+      <button id="startBtn" class="primary-btn">开始讨论</button>
+    </aside>
+
+    <main class="chat-area">
+      <div class="chat-header" id="chatHeader">
+        <span id="chatTopic">设置话题和参与者，点击「开始讨论」</span>
+        <span id="chatStatus" class="chat-status"></span>
+      </div>
+      <div id="messages" class="messages">
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon">💬</div>
+          <p>配置左侧参与者，开始一场精彩的讨论</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
