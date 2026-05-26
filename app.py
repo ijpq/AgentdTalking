@@ -14,9 +14,9 @@ from pydantic import BaseModel
 app = FastAPI(title="AgentdTalking")
 
 MODE_OPENINGS = {
-    "discussion": "好，今天聊聊"{topic}"，大家随便说，想到什么说什么。",
-    "debate": "今天辩一辩"{topic}"，各自亮明立场，开始吧。",
-    "brainstorm": "来，围绕"{topic}"头脑风暴，天马行空，没有烂想法，先说再想。",
+    "discussion": '好，今天聊聊“{topic}”，大家随便说，想到什么说什么。',
+    "debate": '今天辩一辩“{topic}”，各自亮明立场，开始吧。',
+    "brainstorm": '来，围绕“{topic}”头脑风暴，天马行空，没有烂想法，先说再想。',
 }
 
 # These phrases are explicitly taught to agents in the system prompt
