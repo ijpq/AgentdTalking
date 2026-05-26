@@ -36,13 +36,46 @@
 
       <div class="agents-header">
         <h3>参与者</h3>
-        <button class="add-btn" id="addAgent">+ 添加</button>
+        <div class="agents-header-btns">
+          <button class="ai-gen-btn" id="aiGenBtn" title="根据话题 AI 生成参与者">✦ AI 生成</button>
+          <button class="add-btn" id="addAgent">+ 添加</button>
+        </div>
+      </div>
+
+      <!-- Global LLM config used for AI generation (and pre-fills new agents) -->
+      <div class="global-llm-section" id="globalLlmSection">
+        <div class="global-llm-header" id="globalLlmHeader">
+          <span>全局 LLM 配置</span>
+          <span class="collapse-arrow" id="globalLlmArrow">▶</span>
+        </div>
+        <div class="global-llm-body" id="globalLlmBody" style="display:none">
+          <div class="agent-field">
+            <label>Provider</label>
+            <select id="globalProvider">
+              <option value="openai">OpenAI 兼容</option>
+              <option value="anthropic">Anthropic</option>
+            </select>
+          </div>
+          <div class="agent-field">
+            <label>Base URL</label>
+            <input type="text" id="globalBaseUrl" placeholder="https://api.openai.com/v1">
+          </div>
+          <div class="agent-field">
+            <label>API Key</label>
+            <input type="password" id="globalApiKey" placeholder="sk-...">
+          </div>
+          <div class="agent-field">
+            <label>Model</label>
+            <input type="text" id="globalModel" placeholder="gpt-4o">
+          </div>
+          <div class="global-llm-hint">AI 生成参与者时使用此配置；新增参与者时自动填入</div>
+        </div>
       </div>
 
       <div id="agentsList" class="agents-list"></div>
 
       <div class="search-section">
-        <div class="search-section-header" id="searchToggleHeader">
+        <div class="search-section-header">
           <span class="search-section-title">搜索增强（Tavily）</span>
           <label class="toggle-switch" onclick="event.stopPropagation()">
             <input type="checkbox" id="searchEnabled">
@@ -54,7 +87,7 @@
             <label>Tavily API Key</label>
             <input type="password" id="tavilyApiKey" placeholder="tvly-...">
           </div>
-          <div class="search-hint">开始前每位参与者各检索一次话题，共 <span id="searchCount">3</span> 次</div>
+          <div class="search-hint">开始前每位参与者各检索一次话题，共 <span id="searchCount">0</span> 次</div>
         </div>
       </div>
 
@@ -62,7 +95,7 @@
     </aside>
 
     <main class="chat-area">
-      <div class="chat-header" id="chatHeader">
+      <div class="chat-header">
         <span id="chatTopic">设置话题和参与者，点击「开始讨论」</span>
         <span id="chatStatus" class="chat-status"></span>
       </div>
@@ -71,6 +104,10 @@
           <div class="empty-icon">💬</div>
           <p>配置左侧参与者，开始一场精彩的讨论</p>
         </div>
+      </div>
+      <div class="user-input-bar" id="userInputBar" style="display:none">
+        <input type="text" id="userInput" placeholder="加入讨论…（Enter 发送）" autocomplete="off">
+        <button id="userSendBtn">发送</button>
       </div>
     </main>
   </div>

@@ -137,6 +137,66 @@ textarea {
   color: var(--text);
 }
 
+.agents-header-btns {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.ai-gen-btn {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border: none;
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.2s;
+}
+
+.ai-gen-btn:hover { opacity: 0.85; }
+.ai-gen-btn:disabled { opacity: 0.5; cursor: wait; }
+
+/* Global LLM section */
+.global-llm-section {
+  margin: 0 12px 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.global-llm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  user-select: none;
+}
+
+.global-llm-header:hover { background: var(--card-bg); }
+.collapse-arrow { font-size: 10px; }
+
+.global-llm-body {
+  padding: 0 12px 10px;
+  border-top: 1px solid var(--border);
+}
+
+.global-llm-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
 .add-btn {
   background: none;
   border: 1px dashed var(--primary);
@@ -609,6 +669,51 @@ textarea {
 
 .toggle-switch input:checked + .toggle-slider::before {
   transform: translateX(16px);
+}
+
+/* ── User input bar ── */
+.user-input-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  background: #fff;
+}
+
+.user-input-bar input {
+  flex: 1;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.user-input-bar input:focus {
+  border-color: var(--primary);
+}
+
+#userSendBtn {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 20px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+#userSendBtn:hover { background: #3a7bc8; }
+
+.message-user .message-content {
+  background: #e8f0fe;
 }
 
 /* ── Responsive ── */
