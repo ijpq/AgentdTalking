@@ -117,6 +117,8 @@ class AgentdTalking {
           <label>人设 Prompt</label>
           <textarea data-field="prompt" rows="3" placeholder="描述这个角色的背景、性格、观点倾向...">${agent.prompt}</textarea>
         </div>
+        <button class="test-btn" data-agent-id="${agent.id}">测试连接</button>
+        <div class="test-result" data-result-for="${agent.id}"></div>
       </div>
     `;
 
@@ -138,7 +140,44 @@ class AgentdTalking {
       });
     });
 
+    card.querySelector(".test-btn").addEventListener("click", () => this.testAgent(agent));
+
     list.appendChild(card);
+  }
+
+  async testAgent(agent) {
+    const card = document.getElementById(agent.id);
+    const btn = card.querySelector(".test-btn");
+    const resultEl = card.querySelector(".test-result");
+
+    btn.disabled = true;
+    btn.textContent = "测试中...";
+    resultEl.className = "test-result";
+    resultEl.textContent = "";
+
+    try {
+      const resp = await fetch("/api/test-agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: agent.name,
+          provider: agent.provider,
+          base_url: agent.base_url,
+          api_key: agent.api_key,
+          model: agent.model,
+          prompt: agent.prompt,
+        }),
+      });
+      const data = await resp.json();
+      resultEl.textContent = data.message;
+      resultEl.classList.add(data.success ? "success" : "fail");
+    } catch (e) {
+      resultEl.textContent = "请求失败: " + e.message;
+      resultEl.classList.add("fail");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "测试连接";
+    }
   }
 
   _collectConfig() {

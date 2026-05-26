@@ -240,6 +240,44 @@ async def ws_endpoint(ws: WebSocket):
         _discussions.pop(cid, None)
 
 
+@app.post("/api/test-agent")
+async def test_agent(config: AgentConfig):
+    if not config.api_key:
+        return {"success": False, "message": "未填写 API Key"}
+    if not config.model:
+        return {"success": False, "message": "未填写 Model"}
+
+    kwargs = {"api_key": config.api_key}
+    url = config.base_url.strip()
+    if url:
+        kwargs["base_url"] = url
+
+    try:
+        if config.provider == "anthropic":
+            from anthropic import AsyncAnthropic
+            client = AsyncAnthropic(**kwargs)
+            resp = await client.messages.create(
+                model=config.model,
+                max_tokens=10,
+                messages=[{"role": "user", "content": "Hi"}],
+            )
+            return {"success": True, "message": f"连接成功 — {config.model}"}
+        else:
+            from openai import AsyncOpenAI
+            client = AsyncOpenAI(**kwargs)
+            resp = await client.chat.completions.create(
+                model=config.model,
+                max_tokens=10,
+                messages=[{"role": "user", "content": "Hi"}],
+            )
+            return {"success": True, "message": f"连接成功 — {config.model}"}
+    except Exception as e:
+        msg = str(e)
+        if len(msg) > 200:
+            msg = msg[:200] + "..."
+        return {"success": False, "message": msg}
+
+
 @app.get("/")
 async def index():
     return FileResponse("static/index.html")

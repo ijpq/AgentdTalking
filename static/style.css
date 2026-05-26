@@ -251,6 +251,48 @@ textarea {
   min-height: 60px;
 }
 
+/* ── Test Connection ── */
+.test-btn {
+  width: 100%;
+  padding: 7px;
+  border: 1px solid var(--primary);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s, color 0.2s;
+  margin-top: 4px;
+}
+
+.test-btn:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+.test-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.test-result {
+  font-size: 12px;
+  margin-top: 6px;
+  padding: 0 2px;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.test-result.success {
+  color: #27ae60;
+}
+
+.test-result.fail {
+  color: var(--danger);
+}
+
 /* ── Start Button ── */
 .primary-btn {
   margin: 12px 20px 20px;
