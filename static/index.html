@@ -7,111 +7,180 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <div class="app">
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-header">
-        <h1>AgentdTalking</h1>
-        <button class="icon-btn" id="toggleSidebar" title="收起面板">&#9776;</button>
-      </div>
+<div class="app">
 
-      <div class="config-section">
-        <label for="topic">话题</label>
-        <textarea id="topic" rows="3" placeholder="输入讨论话题...">人工智能是否会取代大部分人类工作？</textarea>
-      </div>
+  <!-- ══ SIDEBAR ══ -->
+  <aside class="sidebar" id="sidebar">
 
-      <div class="config-row">
-        <div class="config-section" style="flex:1">
-          <label for="mode">模式</label>
-          <select id="mode">
-            <option value="discussion">讨论</option>
-            <option value="debate">辩论</option>
-            <option value="brainstorm">头脑风暴</option>
+    <div class="sidebar-header">
+      <h1>AgentdTalking</h1>
+      <button class="icon-btn" id="toggleSidebar" title="收起面板">&#9776;</button>
+    </div>
+
+    <!-- Topic -->
+    <div class="section-label">话题</div>
+    <div class="config-block">
+      <textarea id="topic" rows="3" placeholder="输入你想讨论的话题…">人工智能是否会取代大部分人类工作？</textarea>
+    </div>
+
+    <!-- Mode + Rounds -->
+    <div class="config-row">
+      <div class="config-block">
+        <label for="mode">模式</label>
+        <select id="mode">
+          <option value="discussion">💬 讨论</option>
+          <option value="debate">⚔️ 辩论</option>
+          <option value="brainstorm">💡 头脑风暴</option>
+        </select>
+      </div>
+      <div class="config-block">
+        <label for="maxRounds">最大轮数</label>
+        <input type="number" id="maxRounds" value="10" min="1" max="50">
+      </div>
+    </div>
+
+    <!-- Global LLM -->
+    <div class="global-llm-section" id="globalLlmSection">
+      <div class="global-llm-header" id="globalLlmHeader">
+        <div class="global-llm-title">
+          <span class="dot" id="globalLlmDot"></span>
+          全局 LLM 配置
+        </div>
+        <span class="collapse-arrow" id="globalLlmArrow">&#9654;</span>
+      </div>
+      <div class="global-llm-body hidden" id="globalLlmBody">
+        <div class="agent-field">
+          <label>Provider</label>
+          <select id="globalProvider">
+            <option value="openai">OpenAI 兼容</option>
+            <option value="anthropic">Anthropic</option>
           </select>
         </div>
-        <div class="config-section" style="flex:0 0 80px">
-          <label for="maxRounds">轮数</label>
-          <input type="number" id="maxRounds" value="10" min="1" max="50">
+        <div class="agent-field">
+          <label>Base URL <span style="font-weight:400;text-transform:none">（留空用默认地址）</span></label>
+          <input type="text" id="globalBaseUrl" placeholder="https://api.openai.com/v1">
+        </div>
+        <div class="agent-field">
+          <label>API Key</label>
+          <input type="password" id="globalApiKey" placeholder="sk-...">
+        </div>
+        <div class="agent-field">
+          <label>Model</label>
+          <input type="text" id="globalModel" placeholder="gpt-4o">
+        </div>
+        <div class="global-llm-row">
+          <div class="global-llm-hint">AI 生成参与者 &amp; 新增参与者时自动使用此配置</div>
+          <button class="test-global-btn" id="testGlobalBtn">测试连接</button>
+        </div>
+        <div class="global-test-result" id="globalTestResult"></div>
+      </div>
+    </div>
+
+    <!-- Agents header -->
+    <div class="agents-header">
+      <span class="agents-header-label">参与者</span>
+      <div class="agents-header-btns">
+        <button class="ai-gen-btn" id="aiGenBtn">✦ AI 生成</button>
+        <button class="add-btn"    id="addAgent">+ 添加</button>
+      </div>
+    </div>
+
+    <div id="agentsList" class="agents-list"></div>
+
+    <!-- Search -->
+    <div class="search-section">
+      <div class="search-section-header">
+        <span class="search-section-title">🔍 搜索增强（Tavily）</span>
+        <div class="toggle-switch" id="searchToggle">
+          <input type="checkbox" id="searchEnabled">
+          <span class="toggle-slider"></span>
         </div>
       </div>
-
-      <div class="agents-header">
-        <h3>参与者</h3>
-        <div class="agents-header-btns">
-          <button class="ai-gen-btn" id="aiGenBtn" title="根据话题 AI 生成参与者">✦ AI 生成</button>
-          <button class="add-btn" id="addAgent">+ 添加</button>
+      <div id="searchConfig" class="search-config-body hidden">
+        <div class="agent-field">
+          <label>Tavily API Key</label>
+          <input type="password" id="tavilyApiKey" placeholder="tvly-...">
         </div>
+        <div class="search-hint">讨论开始前每位参与者各检索一次，共 <span id="searchCount">0</span> 次</div>
       </div>
+    </div>
 
-      <!-- Global LLM config used for AI generation (and pre-fills new agents) -->
-      <div class="global-llm-section" id="globalLlmSection">
-        <div class="global-llm-header" id="globalLlmHeader">
-          <span>全局 LLM 配置</span>
-          <span class="collapse-arrow" id="globalLlmArrow">&#9654;</span>
-        </div>
-        <div class="global-llm-body hidden" id="globalLlmBody">
-          <div class="agent-field">
-            <label>Provider</label>
-            <select id="globalProvider">
-              <option value="openai">OpenAI 兼容</option>
-              <option value="anthropic">Anthropic</option>
-            </select>
+    <button id="startBtn" class="primary-btn">开始讨论</button>
+
+  </aside>
+
+  <!-- ══ CHAT ══ -->
+  <main class="chat-area">
+    <div class="chat-header">
+      <span id="chatTopic">配置左侧选项，点击「开始讨论」</span>
+      <span id="chatStatus" class="chat-status hidden"></span>
+    </div>
+
+    <div id="messages" class="messages">
+      <!-- Onboarding guide shown before first discussion -->
+      <div class="onboarding" id="onboarding">
+        <div class="onboarding-logo">🗣️</div>
+        <div class="onboarding-title">开始一场多人 AI 对话</div>
+        <div class="onboarding-sub">让多个 AI 角色围绕你的话题展开讨论、辩论或头脑风暴</div>
+
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div>
+              <div class="step-title">配置全局 LLM</div>
+              <div class="step-desc">展开左侧「全局 LLM 配置」，填入 API Key 和 Model，点「测试连接」确认可用</div>
+            </div>
           </div>
-          <div class="agent-field">
-            <label>Base URL</label>
-            <input type="text" id="globalBaseUrl" placeholder="https://api.openai.com/v1">
+          <div class="step">
+            <div class="step-num">2</div>
+            <div>
+              <div class="step-title">生成参与者</div>
+              <div class="step-desc">填好话题后点「✦ AI 生成」，AI 会自动设计 3–5 个视角各异的角色；也可手动添加</div>
+            </div>
           </div>
-          <div class="agent-field">
-            <label>API Key</label>
-            <input type="password" id="globalApiKey" placeholder="sk-...">
+          <div class="step">
+            <div class="step-num">3</div>
+            <div>
+              <div class="step-title">选择模式，开始讨论</div>
+              <div class="step-desc">选好模式后点「开始讨论」；讨论进行中你可随时在底部输入框加入对话</div>
+            </div>
           </div>
-          <div class="agent-field">
-            <label>Model</label>
-            <input type="text" id="globalModel" placeholder="gpt-4o">
-          </div>
-          <div class="global-llm-hint">AI 生成参与者时使用此配置；新增参与者时自动填入</div>
-        </div>
-      </div>
-
-      <div id="agentsList" class="agents-list"></div>
-
-      <div class="search-section">
-        <div class="search-section-header">
-          <span class="search-section-title">搜索增强（Tavily）</span>
-          <div class="toggle-switch" id="searchToggle">
-            <input type="checkbox" id="searchEnabled">
-            <span class="toggle-slider"></span>
+          <div class="step">
+            <div class="step-num">4</div>
+            <div>
+              <div class="step-title">等待共识</div>
+              <div class="step-desc">当所有 AI 参与者都表达「已达成一致」时，对话自动结束</div>
+            </div>
           </div>
         </div>
-        <div id="searchConfig" class="search-config-body hidden">
-          <div class="agent-field">
-            <label>Tavily API Key</label>
-            <input type="password" id="tavilyApiKey" placeholder="tvly-...">
+
+        <div class="mode-cards">
+          <div class="mode-card">
+            <span class="mode-icon">💬</span>
+            <b>讨论</b>
+            自由探讨，适合开放性、多视角话题
           </div>
-          <div class="search-hint">开始前每位参与者各检索一次话题，共 <span id="searchCount">0</span> 次</div>
+          <div class="mode-card">
+            <span class="mode-icon">⚔️</span>
+            <b>辩论</b>
+            各持立场互相驳斥，最终寻求共识
+          </div>
+          <div class="mode-card">
+            <span class="mode-icon">💡</span>
+            <b>头脑风暴</b>
+            快节奏发散，创意优先，不评判好坏
+          </div>
         </div>
       </div>
+    </div>
 
-      <button id="startBtn" class="primary-btn">开始讨论</button>
-    </aside>
+    <div class="user-input-bar hidden" id="userInputBar">
+      <input type="text" id="userInput" placeholder="加入讨论…（Enter 发送）" autocomplete="off">
+      <button id="userSendBtn">发送</button>
+    </div>
+  </main>
 
-    <main class="chat-area">
-      <div class="chat-header">
-        <span id="chatTopic">设置话题和参与者，点击「开始讨论」</span>
-        <span id="chatStatus" class="chat-status"></span>
-      </div>
-      <div id="messages" class="messages">
-        <div class="empty-state" id="emptyState">
-          <div class="empty-icon">💬</div>
-          <p>配置左侧参与者，开始一场精彩的讨论</p>
-        </div>
-      </div>
-      <div class="user-input-bar" id="userInputBar" style="display:none">
-        <input type="text" id="userInput" placeholder="加入讨论…（Enter 发送）" autocomplete="off">
-        <button id="userSendBtn">发送</button>
-      </div>
-    </main>
-  </div>
-
-  <script src="/static/app.js"></script>
+</div>
+<script src="/static/app.js"></script>
 </body>
 </html>
