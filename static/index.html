@@ -46,9 +46,9 @@
       <div class="global-llm-section" id="globalLlmSection">
         <div class="global-llm-header" id="globalLlmHeader">
           <span>全局 LLM 配置</span>
-          <span class="collapse-arrow" id="globalLlmArrow">▶</span>
+          <span class="collapse-arrow" id="globalLlmArrow">&#9654;</span>
         </div>
-        <div class="global-llm-body" id="globalLlmBody" style="display:none">
+        <div class="global-llm-body hidden" id="globalLlmBody">
           <div class="agent-field">
             <label>Provider</label>
             <select id="globalProvider">
@@ -77,12 +77,12 @@
       <div class="search-section">
         <div class="search-section-header">
           <span class="search-section-title">搜索增强（Tavily）</span>
-          <label class="toggle-switch" onclick="event.stopPropagation()">
+          <div class="toggle-switch" id="searchToggle">
             <input type="checkbox" id="searchEnabled">
             <span class="toggle-slider"></span>
-          </label>
+          </div>
         </div>
-        <div id="searchConfig" class="search-config-body" style="display:none">
+        <div id="searchConfig" class="search-config-body hidden">
           <div class="agent-field">
             <label>Tavily API Key</label>
             <input type="password" id="tavilyApiKey" placeholder="tvly-...">

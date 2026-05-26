@@ -4,6 +4,8 @@
   box-sizing: border-box;
 }
 
+.hidden { display: none !important; }
+
 :root {
   --bg: #f0f2f5;
   --sidebar-width: 360px;

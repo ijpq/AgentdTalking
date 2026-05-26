@@ -23,8 +23,11 @@ class AgentdTalking {
     document.getElementById("toggleSidebar").addEventListener("click", () => {
       document.getElementById("sidebar").classList.toggle("collapsed");
     });
-    document.getElementById("searchEnabled").addEventListener("change", (e) => {
-      document.getElementById("searchConfig").style.display = e.target.checked ? "block" : "none";
+    // Toggle: click the whole switch div to toggle the hidden checkbox
+    document.getElementById("searchToggle").addEventListener("click", () => {
+      const cb = document.getElementById("searchEnabled");
+      cb.checked = !cb.checked;
+      document.getElementById("searchConfig").classList.toggle("hidden", !cb.checked);
     });
     document.getElementById("aiGenBtn").addEventListener("click", () => this.generateRoster());
 
@@ -32,9 +35,8 @@ class AgentdTalking {
     document.getElementById("globalLlmHeader").addEventListener("click", () => {
       const body = document.getElementById("globalLlmBody");
       const arrow = document.getElementById("globalLlmArrow");
-      const open = body.style.display === "none";
-      body.style.display = open ? "block" : "none";
-      arrow.textContent = open ? "▼" : "▶";
+      body.classList.toggle("hidden");
+      arrow.innerHTML = body.classList.contains("hidden") ? "&#9654;" : "&#9660;";
     });
 
     // User input
@@ -64,9 +66,9 @@ class AgentdTalking {
 
     const llm = this._globalLlmConfig();
     if (!llm.api_key || !llm.model) {
-      // Try to expand the global LLM section as a hint
-      document.getElementById("globalLlmBody").style.display = "block";
-      document.getElementById("globalLlmArrow").textContent = "▼";
+      // Expand global LLM section as a hint
+      document.getElementById("globalLlmBody").classList.remove("hidden");
+      document.getElementById("globalLlmArrow").innerHTML = "&#9660;";
       return alert("请先填写「全局 LLM 配置」中的 API Key 和 Model");
     }
 
