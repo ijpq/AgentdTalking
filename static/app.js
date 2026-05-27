@@ -6,13 +6,19 @@ const USER_COLOR = "#6d4c41";
 
 class AgentdTalking {
   constructor() {
-    this.ws          = null;
-    this.agents      = [];
-    this.isRunning   = false;
-    this.currentStreamEl = null;
-    this.agentColorMap   = { "你": USER_COLOR };
+    this.ws             = null;
+    this.agents         = [];
+    this.isRunning      = false;
+    this.isViewer       = false;
+    this.sessionId      = null;
+    this.currentTopic   = "";
+    this.chatHistory    = [];          // [{type, agent?, content, number?}]
+    this.currentStreamEl    = null;
+    this.currentStreamAgent = null;
+    this.agentColorMap  = { "你": USER_COLOR };
 
     this._bindUI();
+    this._checkForSession();
   }
 
   // ── UI binding ──────────────────────────────────────────────────────────────
@@ -48,6 +54,39 @@ class AgentdTalking {
     document.getElementById("userInput").addEventListener("keydown", (e) => {
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); this.sendUserMessage(); }
     });
+
+    // Share / Export
+    document.getElementById("shareBtn").addEventListener("click",  () => this.shareDiscussion());
+    document.getElementById("exportBtn").addEventListener("click", () => this.exportDiscussion());
+  }
+
+  // ── Session / viewer mode ───────────────────────────────────────────────────
+
+  _checkForSession() {
+    const sid = new URLSearchParams(location.search).get("session");
+    if (sid) this._joinAsViewer(sid);
+  }
+
+  _joinAsViewer(sid) {
+    this.isViewer = true;
+
+    // Disable owner controls
+    const startBtn = document.getElementById("startBtn");
+    startBtn.textContent = "观看模式";
+    startBtn.disabled = true;
+
+    document.getElementById("viewerBanner").classList.remove("hidden");
+    document.getElementById("exportBtn").classList.remove("hidden");
+
+    const proto = location.protocol === "https:" ? "wss:" : "ws:";
+    this.ws = new WebSocket(`${proto}//${location.host}/ws?session=${encodeURIComponent(sid)}`);
+    this.ws.onmessage = (e) => this._handleEvent(JSON.parse(e.data));
+    this.ws.onerror   = () => { this._appendSystem("WebSocket 连接失败"); };
+    this.ws.onclose   = () => {
+      const banner = document.getElementById("viewerBanner");
+      banner.textContent = "👁 观看已结束";
+      banner.classList.add("ended");
+    };
   }
 
   // ── Global LLM helpers ──────────────────────────────────────────────────────
@@ -284,10 +323,13 @@ class AgentdTalking {
 
     this.agentColorMap = { "你": USER_COLOR };
     this.agents.forEach((a) => { this.agentColorMap[a.name] = a.color; });
+    this.currentTopic = config.topic;
 
     this._clearMessages();
     document.getElementById("chatTopic").textContent = config.topic;
     document.getElementById("chatStatus").classList.remove("hidden");
+    document.getElementById("exportBtn").classList.add("hidden");
+    document.getElementById("shareBtn").classList.add("hidden");
 
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
     this.ws = new WebSocket(`${proto}//${location.host}/ws`);
@@ -304,6 +346,7 @@ class AgentdTalking {
 
   _setRunning(running) {
     this.isRunning = running;
+    if (this.isViewer) return;
     const btn = document.getElementById("startBtn");
     const bar = document.getElementById("userInputBar");
     btn.textContent = running ? "停止讨论" : "开始讨论";
@@ -314,7 +357,9 @@ class AgentdTalking {
 
   _clearMessages() {
     document.getElementById("messages").innerHTML = "";
-    this.currentStreamEl = null;
+    this.chatHistory        = [];
+    this.currentStreamEl    = null;
+    this.currentStreamAgent = null;
   }
 
   // ── User message ────────────────────────────────────────────────────────────
@@ -333,20 +378,47 @@ class AgentdTalking {
 
   _handleEvent(evt) {
     switch (evt.type) {
+      // ── Sharing ──
+      case "session_id":
+        this.sessionId = evt.id;
+        history.pushState({}, "", `?session=${evt.id}`);
+        document.getElementById("shareBtn").classList.remove("hidden");
+        break;
+
+      case "session_not_found":
+        this._appendSystem("❌ 会话不存在或已结束，请检查链接");
+        break;
+
+      case "history_replay":
+        this._clearMessages();
+        this.currentTopic = evt.topic;
+        document.getElementById("chatTopic").textContent = evt.topic;
+        this.agentColorMap = { "你": USER_COLOR };
+        evt.events.forEach((e) => this._handleEvent(e));
+        if (!evt.active) {
+          const banner = document.getElementById("viewerBanner");
+          if (banner) { banner.textContent = "👁 讨论已结束"; banner.classList.add("ended"); }
+        }
+        break;
+
+      // ── Discussion events ──
       case "moderator":    this._appendSystem(evt.content);               break;
       case "round":        this._appendRound(evt.number);                 break;
       case "thinking":     this._appendThinking(evt.agent);               break;
       case "token":        this._appendToken(evt.agent, evt.content);     break;
       case "message_done": this._finishMessage();                          break;
       case "user_spoke":                                                   break;
+
       case "consensus":
         this._finishMessage();
         this._appendConsensus(evt.message);
         break;
+
       case "max_rounds":
         this._finishMessage();
         this._appendSystem(evt.message);
         break;
+
       case "searching":
         this._appendSystem(`🔍 ${evt.agent} 正在检索最新资料…`);
         break;
@@ -354,14 +426,19 @@ class AgentdTalking {
       case "search_failed":
         this._appendSystem(`⚠️ ${evt.agent} 检索失败: ${evt.message}`);
         break;
+
       case "error":
         this._finishMessage();
         this._appendSystem(`${evt.agent} 出错: ${evt.message}`);
         break;
+
       case "finished":
         this._finishMessage();
         this._setRunning(false);
         document.getElementById("chatStatus").textContent = "已结束";
+        if (this.chatHistory.length > 0) {
+          document.getElementById("exportBtn").classList.remove("hidden");
+        }
         break;
     }
     document.getElementById("messages").scrollTop = 9999;
@@ -369,9 +446,15 @@ class AgentdTalking {
 
   // ── DOM builders ────────────────────────────────────────────────────────────
 
-  _getColor(name) { return this.agentColorMap[name] || "#90a4ae"; }
+  _getColor(name) {
+    if (!this.agentColorMap[name]) {
+      this.agentColorMap[name] = COLORS[Object.keys(this.agentColorMap).length % COLORS.length];
+    }
+    return this.agentColorMap[name];
+  }
 
   _appendSystem(text) {
+    this.chatHistory.push({ type: "system", content: text });
     const el = document.createElement("div");
     el.className = "system-message";
     el.innerHTML = `<span>${this._escapeHtml(text)}</span>`;
@@ -379,14 +462,16 @@ class AgentdTalking {
   }
 
   _appendRound(n) {
+    this.chatHistory.push({ type: "round", number: n });
     const el = document.createElement("div");
     el.className = "round-indicator";
     el.innerHTML = `<span>第 ${n} 轮</span>`;
     document.getElementById("messages").appendChild(el);
-    document.getElementById("chatStatus").textContent = `第 ${n} 轮`;
+    if (!this.isViewer) document.getElementById("chatStatus").textContent = `第 ${n} 轮`;
   }
 
   _appendConsensus(text) {
+    this.chatHistory.push({ type: "consensus", content: text });
     const el = document.createElement("div");
     el.className = "consensus-message";
     el.innerHTML = `<span>${this._escapeHtml(text)}</span>`;
@@ -408,7 +493,8 @@ class AgentdTalking {
         </div>
       </div>`;
     document.getElementById("messages").appendChild(el);
-    this.currentStreamEl = el;
+    this.currentStreamEl    = el;
+    this.currentStreamAgent = name;
   }
 
   _appendToken(name, token) {
@@ -420,6 +506,7 @@ class AgentdTalking {
   }
 
   _appendUserMessage(content) {
+    this.chatHistory.push({ type: "user", agent: "你", content });
     const el = document.createElement("div");
     el.className = "message message-user";
     el.innerHTML = `
@@ -433,10 +520,65 @@ class AgentdTalking {
 
   _finishMessage() {
     if (this.currentStreamEl) {
-      this.currentStreamEl.querySelector(".typing-indicator")?.remove();
-      this.currentStreamEl = null;
+      const contentEl = this.currentStreamEl.querySelector(".message-content");
+      const typing    = contentEl?.querySelector(".typing-indicator");
+      if (typing) typing.remove();
+      const text = contentEl?.textContent || "";
+      if (text && this.currentStreamAgent) {
+        this.chatHistory.push({ type: "message", agent: this.currentStreamAgent, content: text });
+      }
+      this.currentStreamEl    = null;
+      this.currentStreamAgent = null;
     }
   }
+
+  // ── Export ──────────────────────────────────────────────────────────────────
+
+  exportDiscussion() {
+    if (!this.chatHistory.length) return;
+    const topic = this.currentTopic || "讨论";
+    const lines = [
+      `# 讨论记录\n\n`,
+      `**话题：** ${topic}\n\n`,
+      `**时间：** ${new Date().toLocaleString("zh-CN")}\n\n`,
+      `---\n\n`,
+    ];
+    for (const h of this.chatHistory) {
+      if (h.type === "round") {
+        lines.push(`\n---\n\n**第 ${h.number} 轮**\n\n`);
+      } else if (h.type === "system") {
+        lines.push(`> ${h.content}\n\n`);
+      } else if (h.type === "consensus") {
+        lines.push(`\n✅ **${h.content}**\n\n`);
+      } else if (h.type === "message" || h.type === "user") {
+        lines.push(`**${h.agent || "你"}：**\n\n${h.content}\n\n`);
+      }
+    }
+    const blob = new Blob([lines.join("")], { type: "text/markdown;charset=utf-8" });
+    const url  = URL.createObjectURL(blob);
+    const safe = topic.replace(/[^一-龥\w]/g, "").slice(0, 12) || "discussion";
+    const a    = Object.assign(document.createElement("a"), {
+      href: url, download: `讨论_${safe}_${Date.now()}.md`,
+    });
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  // ── Share ───────────────────────────────────────────────────────────────────
+
+  shareDiscussion() {
+    const url  = location.href;
+    const btn  = document.getElementById("shareBtn");
+    const orig = btn.textContent;
+    const done = () => { btn.textContent = "✓ 已复制"; setTimeout(() => { btn.textContent = orig; }, 2200); };
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(done).catch(() => prompt("复制此链接：", url));
+    } else {
+      prompt("复制此链接：", url);
+    }
+  }
+
+  // ── Util ────────────────────────────────────────────────────────────────────
 
   _escapeHtml(str = "") {
     const d = document.createElement("div");

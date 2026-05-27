@@ -115,7 +115,12 @@
   <main class="chat-area">
     <div class="chat-header">
       <span id="chatTopic">配置左侧选项，点击「开始讨论」</span>
-      <span id="chatStatus" class="chat-status hidden"></span>
+      <div class="chat-header-right">
+        <span id="viewerBanner" class="viewer-badge hidden">👁 观看中</span>
+        <span id="chatStatus" class="chat-status hidden"></span>
+        <button id="shareBtn" class="header-action-btn hidden" title="复制链接，分享此讨论">📋 分享</button>
+        <button id="exportBtn" class="header-action-btn hidden" title="导出讨论记录为 Markdown">📥 导出</button>
+      </div>
     </div>
 
     <div id="messages" class="messages">

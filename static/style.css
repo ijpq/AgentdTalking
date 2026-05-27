@@ -485,6 +485,13 @@ textarea { resize: vertical; }
   text-overflow: ellipsis;
   white-space: nowrap;
   opacity: .95;
+  flex: 1;
+}
+.chat-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 .chat-status {
   font-size: 12px;
@@ -495,6 +502,32 @@ textarea { resize: vertical; }
   border-radius: 12px;
   white-space: nowrap;
 }
+.viewer-badge {
+  font-size: 12px;
+  color: #fff;
+  background: rgba(229,57,53,.85);
+  padding: 3px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.viewer-badge.ended {
+  background: rgba(0,0,0,.3);
+}
+.header-action-btn {
+  padding: 5px 12px;
+  border: 1.5px solid rgba(255,255,255,.45);
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,.12);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .15s;
+  white-space: nowrap;
+}
+.header-action-btn:hover { background: rgba(255,255,255,.25); }
 
 .messages {
   flex: 1;

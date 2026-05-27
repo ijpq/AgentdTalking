@@ -276,19 +276,33 @@ class LLMAgent:
 # ── Discussion ────────────────────────────────────────────────────────────────
 
 class Discussion:
-    def __init__(self, config: DiscussionConfig, ws: WebSocket):
+    def __init__(self, config: DiscussionConfig, ws: WebSocket, session_id: str):
         self.config = config
         self.ws = ws
+        self.session_id = session_id
+        self.event_log: list[dict] = []
         self.agents = [LLMAgent(ac) for ac in config.agents]
         self.history: list[dict] = []
         self.active = False
         self.user_queue: asyncio.Queue = asyncio.Queue()
 
     async def emit(self, event: str, **kwargs):
+        data = {"type": event, **kwargs}
+        self.event_log.append(data)
         try:
-            await self.ws.send_json({"type": event, **kwargs})
+            await self.ws.send_json(data)
         except Exception:
             self.active = False
+        # Broadcast to any connected viewers
+        viewers = _viewers.get(self.session_id, [])
+        dead = []
+        for vws in viewers:
+            try:
+                await vws.send_json(data)
+            except Exception:
+                dead.append(vws)
+        for vws in dead:
+            viewers.remove(vws)
 
     async def inject_user_message(self, content: str):
         await self.user_queue.put(content)
@@ -398,12 +412,72 @@ class Discussion:
 # ── WebSocket ─────────────────────────────────────────────────────────────────
 
 _discussions: dict[str, Discussion] = {}
+_sessions:    dict[str, Discussion]        = {}   # session_id → Discussion (for sharing)
+_viewers:     dict[str, list[WebSocket]]  = {}   # session_id → viewer sockets
+
+
+def _synthesize_replay(log: list[dict]) -> list[dict]:
+    """Collapse per-token streams into single token events for efficient history replay."""
+    result: list[dict] = []
+    i = 0
+    while i < len(log):
+        evt = log[i]
+        if evt["type"] == "thinking":
+            result.append(evt)
+            i += 1
+            tokens: list[str] = []
+            while i < len(log) and log[i]["type"] in ("token", "message_done"):
+                if log[i]["type"] == "token":
+                    tokens.append(log[i]["content"])
+                else:
+                    i += 1
+                    break
+                i += 1
+            if tokens:
+                result.append({"type": "token", "agent": evt["agent"], "content": "".join(tokens)})
+            result.append({"type": "message_done", "agent": evt["agent"]})
+        elif evt["type"] in ("token", "message_done"):
+            i += 1  # already handled above
+        else:
+            result.append(evt)
+            i += 1
+    return result
 
 
 @app.websocket("/ws")
-async def ws_endpoint(ws: WebSocket):
+async def ws_endpoint(ws: WebSocket, session: str = None):
     await ws.accept()
-    cid = str(uuid.uuid4())
+
+    # ── Viewer mode ──────────────────────────────────────────────────────────────
+    if session:
+        disc = _sessions.get(session)
+        if disc is None:
+            await ws.send_json({"type": "session_not_found"})
+            await ws.close()
+            return
+        await ws.send_json({
+            "type": "history_replay",
+            "topic": disc.config.topic,
+            "mode":  disc.config.mode,
+            "active": disc.active,
+            "events": _synthesize_replay(disc.event_log),
+        })
+        if disc.active:
+            _viewers.setdefault(session, []).append(ws)
+            try:
+                while True:
+                    _ = await ws.receive_text()   # keep-alive; viewers are read-only
+            except (WebSocketDisconnect, Exception):
+                pass
+            finally:
+                lst = _viewers.get(session, [])
+                if ws in lst:
+                    lst.remove(ws)
+        return
+
+    # ── Owner mode ───────────────────────────────────────────────────────────────
+    cid     = str(uuid.uuid4())
+    sess_id: str | None = None
     discussion = None
 
     try:
@@ -411,9 +485,13 @@ async def ws_endpoint(ws: WebSocket):
             data = await ws.receive_json()
 
             if data["type"] == "start":
-                config = DiscussionConfig(**data["config"])
-                discussion = Discussion(config, ws)
-                _discussions[cid] = discussion
+                sess_id    = uuid.uuid4().hex[:8]
+                config     = DiscussionConfig(**data["config"])
+                discussion = Discussion(config, ws, sess_id)
+                _discussions[cid]  = discussion
+                _sessions[sess_id] = discussion
+                _viewers[sess_id]  = []
+                await ws.send_json({"type": "session_id", "id": sess_id})
                 asyncio.create_task(discussion.run())
 
             elif data["type"] == "stop":
@@ -432,6 +510,13 @@ async def ws_endpoint(ws: WebSocket):
         if discussion:
             discussion.stop()
         _discussions.pop(cid, None)
+        # Close any remaining viewer sockets for this session
+        if sess_id and sess_id in _viewers:
+            for vws in _viewers.pop(sess_id, []):
+                try:
+                    await vws.close()
+                except Exception:
+                    pass
 
 
 # ── REST endpoints ────────────────────────────────────────────────────────────
