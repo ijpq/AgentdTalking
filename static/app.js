@@ -11,6 +11,7 @@ class AgentdTalking {
     this.isRunning      = false;
     this.isViewer       = false;
     this.sessionId      = null;
+    this.userAlias      = "你";
     this.currentTopic   = "";
     this.chatHistory    = [];          // [{type, agent?, content, number?}]
     this.currentStreamEl    = null;
@@ -321,6 +322,7 @@ class AgentdTalking {
       if (!a.model)   return alert(`请填写「${a.name}」的 Model`);
     }
 
+    this.userAlias = "你";
     this.agentColorMap = { "你": USER_COLOR };
     this.agents.forEach((a) => { this.agentColorMap[a.name] = a.color; });
     this.currentTopic = config.topic;
@@ -385,6 +387,14 @@ class AgentdTalking {
         document.getElementById("shareBtn").classList.remove("hidden");
         break;
 
+      case "user_alias":
+        this.userAlias = evt.alias;
+        this.agentColorMap[evt.alias] = USER_COLOR;
+        if (!this.isViewer) {
+          document.getElementById("userInput").placeholder = `加入讨论…（你是 ${evt.alias}）`;
+        }
+        break;
+
       case "session_not_found":
         this._appendSystem("❌ 会话不存在或已结束，请检查链接");
         break;
@@ -392,6 +402,7 @@ class AgentdTalking {
       case "history_replay":
         this._clearMessages();
         this.currentTopic = evt.topic;
+        this.userAlias = "你";
         document.getElementById("chatTopic").textContent = evt.topic;
         this.agentColorMap = { "你": USER_COLOR };
         evt.events.forEach((e) => this._handleEvent(e));
@@ -407,7 +418,9 @@ class AgentdTalking {
       case "thinking":     this._appendThinking(evt.agent);               break;
       case "token":        this._appendToken(evt.agent, evt.content);     break;
       case "message_done": this._finishMessage();                          break;
-      case "user_spoke":                                                   break;
+      case "user_spoke":
+        if (this.isViewer) this._appendUserMessage(evt.content, evt.agent);
+        break;
 
       case "consensus":
         this._finishMessage();
@@ -505,14 +518,15 @@ class AgentdTalking {
     contentEl.textContent += token;
   }
 
-  _appendUserMessage(content) {
-    this.chatHistory.push({ type: "user", agent: "你", content });
+  _appendUserMessage(content, displayName = null) {
+    const name = displayName || this.userAlias;
+    this.chatHistory.push({ type: "user", agent: name, content });
     const el = document.createElement("div");
     el.className = "message message-user";
     el.innerHTML = `
-      <div class="message-avatar" style="background:${USER_COLOR}">你</div>
+      <div class="message-avatar" style="background:${USER_COLOR}">${this._escapeHtml(name.charAt(0))}</div>
       <div class="message-body">
-        <div class="message-name" style="color:${USER_COLOR}">你</div>
+        <div class="message-name" style="color:${USER_COLOR}">${this._escapeHtml(name)}</div>
         <div class="message-content">${this._escapeHtml(content)}</div>
       </div>`;
     document.getElementById("messages").appendChild(el);

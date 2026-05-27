@@ -13,6 +13,13 @@ from pydantic import BaseModel
 
 app = FastAPI(title="AgentdTalking")
 
+# Random alias pool for the human user who joins mid-discussion
+_USER_ALIASES = [
+    "小明", "阿强", "小红", "阿华", "小林", "阿杰", "小云", "阿涛",
+    "小婷", "阿峰", "小龙", "阿玲", "小飞", "阿磊", "小芳", "阿宇",
+    "小勇", "阿莉", "小辉", "阿梅", "小鹏", "阿静", "小军", "阿燕",
+]
+
 MODE_OPENINGS = {
     "discussion": '好，今天聊聊“{topic}”，大家随便说，想到什么说什么。',
     "debate": '今天辩一辩“{topic}”，各自亮明立场，开始吧。',
@@ -201,7 +208,7 @@ class LLMAgent:
             prompt += f"\n\n## 你搜到的最新资料（来自互联网，仅供参考）\n{self.search_result}"
         return prompt
 
-    def _build_messages(self, history: list[dict], topic: str, mode: str, other_names: list[str]):
+    def _build_messages(self, history: list[dict], topic: str, mode: str, other_names: list[str], user_alias: str = ""):
         system_prompt = self._build_system_prompt(topic, mode, other_names)
 
         raw = []
@@ -223,13 +230,12 @@ class LLMAgent:
         else:
             last = history[-1] if history else None
             if last and last["agent"] != self.name:
-                if last["agent"] == "你":
-                    # Real human user jumped in — make this impossible to miss
+                if last["agent"] == user_alias:
                     cue = (
                         f"【真实用户插话】\n"
-                        f"有一位真实的人类用户刚刚加入了讨论，ta说：\n"
+                        f"有一位真实的人类用户（{user_alias}）刚刚加入了讨论，ta说：\n"
                         f"「{last['content'][:300]}」\n\n"
-                        f"请直接回应ta说的这句话，把ta当作刚走进讨论圈的真实人类。"
+                        f"请直接回应{user_alias}说的这句话，把ta当作刚走进讨论圈的真实人类。"
                     )
                 else:
                     cue = f"（{last['agent']}刚才说：「{last['content'][:80]}」）\n你来回应。"
@@ -238,9 +244,9 @@ class LLMAgent:
         return system_prompt, merged
 
     async def stream_response(
-        self, history: list[dict], topic: str, mode: str, other_names: list[str]
+        self, history: list[dict], topic: str, mode: str, other_names: list[str], user_alias: str = ""
     ) -> AsyncGenerator[str, None]:
-        system_prompt, messages = self._build_messages(history, topic, mode, other_names)
+        system_prompt, messages = self._build_messages(history, topic, mode, other_names, user_alias)
 
         if self.config.provider == "anthropic":
             client = self._get_anthropic_client()
@@ -297,6 +303,10 @@ class Discussion:
         self.history: list[dict] = []
         self.active = False
         self.user_queue: asyncio.Queue = asyncio.Queue()
+        # Pick a name that isn't already taken by any agent
+        taken = {a.name for a in self.agents}
+        pool  = [n for n in _USER_ALIASES if n not in taken]
+        self.user_alias: str = random.choice(pool) if pool else "小明"
 
     async def emit(self, event: str, **kwargs):
         data = {"type": event, **kwargs}
@@ -321,8 +331,8 @@ class Discussion:
 
     def _other_names(self, agent: "LLMAgent") -> list[str]:
         names = [a.name for a in self.agents if a.name != agent.name]
-        if any(m["agent"] == "你" for m in self.history):
-            names.append("人类用户")
+        if any(m["agent"] == self.user_alias for m in self.history):
+            names.append(self.user_alias)
         return names
 
     def _check_consensus(self) -> bool:
@@ -345,11 +355,12 @@ class Discussion:
         """Inject any pending user messages into history and emit them."""
         while not self.user_queue.empty():
             content = self.user_queue.get_nowait()
-            self.history.append({"agent": "你", "content": content})
-            await self.emit("user_spoke", agent="你", content=content)
+            self.history.append({"agent": self.user_alias, "content": content})
+            await self.emit("user_spoke", agent=self.user_alias, content=content)
 
     async def run(self):
         self.active = True
+        await self.emit("user_alias", alias=self.user_alias)
 
         # Phase 0: web search
         if self.config.search and self.config.search.api_key:
@@ -393,7 +404,7 @@ class Discussion:
                 full_text = ""
                 try:
                     async for token in agent.stream_response(
-                        self.history, self.config.topic, self.config.mode, other_names
+                        self.history, self.config.topic, self.config.mode, other_names, self.user_alias
                     ):
                         if not self.active:
                             break
