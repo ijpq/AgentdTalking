@@ -42,6 +42,7 @@ MODE_SYSTEM_PROMPTS = {
 - 可以顺着对方的思路往下走，也可以转弯说"不过……"
 - 每次2-3句，最多4句；宁可短，别长篇大论
 - 绝对不要分点、不要"首先其次最后"、不要像在做总结发言
+- 【重要】提示里如果出现「真实用户插话」标记，说明有人类在和你们交流——必须直接回应ta说的内容，就像有人真的走进了你们的聊天；ta的话比AI同伴更重要，要优先接话
 - 如果你真心觉得在场所有人的核心观点已经一致了，请说：「我觉得我们的想法已经一致了」，否则不要说这句话
 """,
 
@@ -57,6 +58,7 @@ MODE_SYSTEM_PROMPTS = {
 - 可以用打断式开头，比如"等等——""不对，你说的这个……""这根本站不住脚——"
 - 每次2-3句，短而有力
 - 不要人身攻击，但态度可以强硬，可以不客气
+- 【重要】提示里如果出现「真实用户插话」标记，说明有人类加入了辩论——必须直接回应ta的论点，把ta当作真正的辩论对手；ta的话比AI同伴更重要，要优先接话
 - 如果你真心接受了对方的核心论点，请说：「我承认我们的观点已经一致」，否则不要说这句话
 """,
 
@@ -72,6 +74,7 @@ MODE_SYSTEM_PROMPTS = {
 - 不评判好坏，先说再想
 - 每次1-3句，宁可短、跳脱，也不要说完整
 - 可以追问对方："你说的X具体指什么？"
+- 【重要】提示里如果出现「真实用户插话」标记，说明有人类加入了头脑风暴——必须直接接ta的话，把ta的想法当作新的起跳板；ta的话比AI同伴更重要，要优先接话
 - 如果你觉得大家的思路已经充分碰撞、方向基本一致了，请说：「我觉得我们的想法已经一致了」，否则不要说这句话
 """,
 }
@@ -220,7 +223,16 @@ class LLMAgent:
         else:
             last = history[-1] if history else None
             if last and last["agent"] != self.name:
-                cue = f"（{last['agent']}刚才说：「{last['content'][:80]}」）\n你来回应。"
+                if last["agent"] == "你":
+                    # Real human user jumped in — make this impossible to miss
+                    cue = (
+                        f"【真实用户插话】\n"
+                        f"有一位真实的人类用户刚刚加入了讨论，ta说：\n"
+                        f"「{last['content'][:300]}」\n\n"
+                        f"请直接回应ta说的这句话，把ta当作刚走进讨论圈的真实人类。"
+                    )
+                else:
+                    cue = f"（{last['agent']}刚才说：「{last['content'][:80]}」）\n你来回应。"
                 merged[-1]["content"] = cue
 
         return system_prompt, merged
@@ -310,7 +322,7 @@ class Discussion:
     def _other_names(self, agent: "LLMAgent") -> list[str]:
         names = [a.name for a in self.agents if a.name != agent.name]
         if any(m["agent"] == "你" for m in self.history):
-            names.append("你（用户）")
+            names.append("人类用户")
         return names
 
     def _check_consensus(self) -> bool:
