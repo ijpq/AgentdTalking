@@ -419,10 +419,10 @@ textarea { resize: vertical; }
 }
 .adv-row:last-child { border-bottom: none; }
 .adv-row-input { align-items: flex-start; padding-top: 9px; }
-.adv-label { display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; }
+.adv-label { display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; flex: 1; min-width: 0; }
 .adv-label > span:first-child { font-weight: 600; color: var(--text); }
 .adv-desc { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
-.adv-number {
+input.adv-number {
   width: 54px;
   padding: 4px 8px;
   border: 1px solid var(--border);
