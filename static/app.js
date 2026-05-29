@@ -16,6 +16,8 @@ class AgentdTalking {
     this.chatHistory    = [];          // [{type, agent?, content, number?}]
     this.currentStreamEl    = null;
     this.currentStreamAgent = null;
+    this.reportEl       = null;
+    this.reportText     = "";
     this.agentColorMap  = { "你": USER_COLOR };
 
     this._bindUI();
@@ -440,6 +442,20 @@ class AgentdTalking {
         this._appendSystem(`⚠️ ${evt.agent} 检索失败: ${evt.message}`);
         break;
 
+      case "report_start":
+        this._finishMessage();
+        this._startReport();
+        break;
+      case "report_token":
+        this._appendReportToken(evt.content);
+        break;
+      case "report_done":
+        this._finishReport();
+        break;
+      case "report_failed":
+        this._appendSystem(`⚠️ 结论报告生成失败: ${evt.message}`);
+        break;
+
       case "error":
         this._finishMessage();
         this._appendSystem(`${evt.agent} 出错: ${evt.message}`);
@@ -546,6 +562,68 @@ class AgentdTalking {
     }
   }
 
+  // ── Conclusions report ────────────────────────────────────────────────────────
+
+  _startReport() {
+    this.reportText = "";
+    const el = document.createElement("div");
+    el.className = "report-card";
+    el.innerHTML = `
+      <div class="report-header">📊 结论报告</div>
+      <div class="report-body"><div class="typing-indicator"><span></span><span></span><span></span></div></div>`;
+    document.getElementById("messages").appendChild(el);
+    this.reportEl = el;
+  }
+
+  _appendReportToken(token) {
+    if (!this.reportEl) this._startReport();
+    this.reportText += token;
+    const body = this.reportEl.querySelector(".report-body");
+    body.innerHTML = this._renderMarkdown(this.reportText);
+    document.getElementById("messages").scrollTop = 9999;
+  }
+
+  _finishReport() {
+    if (!this.reportEl) return;
+    const body = this.reportEl.querySelector(".report-body");
+    body.innerHTML = this._renderMarkdown(this.reportText);
+    if (this.reportText.trim()) {
+      this.chatHistory.push({ type: "report", content: this.reportText });
+    }
+    this.reportEl = null;
+    document.getElementById("exportBtn").classList.remove("hidden");
+  }
+
+  _renderMarkdown(md) {
+    const lines = md.split("\n");
+    let html = "", inList = false;
+    for (const line of lines) {
+      if (/^\s*[-*]\s+/.test(line)) {
+        if (!inList) { html += "<ul>"; inList = true; }
+        html += "<li>" + this._inlineMarkdown(this._escapeHtml(line.replace(/^\s*[-*]\s+/, ""))) + "</li>";
+        continue;
+      }
+      if (inList) { html += "</ul>"; inList = false; }
+      const h = line.match(/^(#{1,4})\s+(.*)/);
+      if (h) {
+        const lvl = Math.min(h[1].length + 2, 6);
+        html += `<h${lvl}>${this._inlineMarkdown(this._escapeHtml(h[2]))}</h${lvl}>`;
+      } else if (line.trim() === "") {
+        // blank line — paragraph break handled by block spacing
+      } else {
+        html += `<p>${this._inlineMarkdown(this._escapeHtml(line))}</p>`;
+      }
+    }
+    if (inList) html += "</ul>";
+    return html;
+  }
+
+  _inlineMarkdown(s) {
+    return s
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/`(.+?)`/g, "<code>$1</code>");
+  }
+
   // ── Export ──────────────────────────────────────────────────────────────────
 
   exportDiscussion() {
@@ -564,6 +642,8 @@ class AgentdTalking {
         lines.push(`> ${h.content}\n\n`);
       } else if (h.type === "consensus") {
         lines.push(`\n✅ **${h.content}**\n\n`);
+      } else if (h.type === "report") {
+        lines.push(`\n---\n\n# 📊 结论报告\n\n${h.content}\n\n`);
       } else if (h.type === "message" || h.type === "user") {
         lines.push(`**${h.agent || "你"}：**\n\n${h.content}\n\n`);
       }

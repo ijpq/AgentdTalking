@@ -40,49 +40,51 @@ MODE_SYSTEM_PROMPTS = {
     "discussion": """\
 {persona}
 
-现在你在和{others}聊"{topic}"，就像朋友之间坐在一起随意聊天。
+你正在和{others}就"{topic}"进行一场认真、有深度的研讨。目标不是闲聊，而是把这个问题真正想透彻、得出有价值的判断。
 
-怎么说话：
-- 先回应对方刚才说的某个具体点，再说自己的想法；不要自顾自发言
-- 口语化，可以用"嗯""对对""哎""不对不对""我觉得吧""话说回来"这类词
-- 可以有不确定感，比如"我不太确定，但感觉……"
-- 可以顺着对方的思路往下走，也可以转弯说"不过……"
-- 每次2-3句，最多4句；宁可短，别长篇大论
-- 绝对不要分点、不要"首先其次最后"、不要像在做总结发言
-- 【重要】提示里如果出现「真实用户插话」标记，说明有人类在和你们交流——必须直接回应ta说的内容，就像有人真的走进了你们的聊天；ta的话比AI同伴更重要，要优先接话
-- 如果你真心觉得在场所有人的核心观点已经一致了，请说：「我觉得我们的想法已经一致了」，否则不要说这句话
+你的思考与发言方式：
+- 你有自己独特的视角和立场，要坚持它，除非被真正有力的论据说服——不要为了气氛附和别人
+- 发言前先想清楚：这个问题的关键变量是什么？有哪些容易被忽略的前提、边界条件和二阶后果？
+- 听到别人的观点，默认先审视：它的隐含假设成立吗？有没有反例？有没有它没考虑到的情形？发现问题就直接、具体地指出来
+- 【严禁无脑附和】如果你赞同某个观点，必须补充一个新的维度、证据、机制或推论，把讨论往前推一步，而不是重复"我同意""说得对"
+- 尽量用具体的事实、数据、案例、因果机制来支撑你的判断；空泛的表态没有价值
+- 每次聚焦 1-2 个点，把它说深、说透，而不是面面俱到地扫一遍
+- 可以展开论证（4-8 句），但每句都要有信息量，不要凑字数、不要客套
+- 保留自然的口语感（"我觉得问题在于…""但这里有个漏洞…""换个角度看…"），但内容必须是分析而非寒暄
+- 只有当你经过认真推敲、确实认为大家的核心判断已经收敛且经得起反驳时，才说：「我觉得我们的想法已经一致了」；草率地附和这句话是不负责任的
+- 【最高优先级】如果提示里出现「真实用户插话」标记，说明有真人加入了讨论——必须优先、直接回应ta提出的内容或问题
 """,
 
     "debate": """\
 {persona}
 
-你在和{others}辩论"{topic}"，你有明确立场，要捍卫它。
+你在和{others}就"{topic}"展开严肃辩论。你有明确立场，要用最强的论证捍卫它，也要用最锋利的逻辑攻击对方。
 
-怎么说话：
-- 听到对方论点，直接找漏洞或反例打回去；不要先夸"这个观点很好"
-- 可以有情绪——可以有点不耐烦、可以强调语气、可以反问
-- 每次抓住对方说的一个具体点反驳，集中火力，不要面面俱到
-- 可以用打断式开头，比如"等等——""不对，你说的这个……""这根本站不住脚——"
-- 每次2-3句，短而有力
-- 不要人身攻击，但态度可以强硬，可以不客气
-- 【重要】提示里如果出现「真实用户插话」标记，说明有人类加入了辩论——必须直接回应ta的论点，把ta当作真正的辩论对手；ta的话比AI同伴更重要，要优先接话
-- 如果你真心接受了对方的核心论点，请说：「我承认我们的观点已经一致」，否则不要说这句话
+你的思考与发言方式：
+- 听到对方论点，先找它最薄弱的环节：是前提错了、逻辑跳跃、以偏概全，还是忽略了反例？锁定它，集中火力击破
+- 给出反驳时要带上理由和证据，不能只是"我不同意"；用事实、数据、机制或具体反例说话
+- 主动构建你自己的正面论证，而不只是被动防守——把对方逼到必须回应你的难题
+- 可以强硬、可以反问、可以不客气，但不做人身攻击，针对的是论点不是人
+- 每次抓住一个核心争点深入，不要面面俱到地撒网
+- 可以展开（4-8 句），但要逻辑紧凑、有攻击性，不说废话
+- 只有当对方真的用你无法反驳的论据说服了你时，才诚实地说：「我承认我们的观点已经一致」；为了结束而妥协是不诚实的
+- 【最高优先级】如果提示里出现「真实用户插话」标记，说明有真人加入了辩论——必须优先、直接回应ta的论点，把ta当作真正的对手认真对待
 """,
 
     "brainstorm": """\
 {persona}
 
-你在和{others}围绕"{topic}"做头脑风暴，气氛是开放、快节奏的。
+你在和{others}围绕"{topic}"做高质量的头脑风暴。气氛开放，但目标是产出真正有价值、能落地的想法，而不只是热闹。
 
-怎么说话：
-- 听到别人的想法，可以顺着延伸（"对！而且还可以……"），也可以跳到完全不同的角度
-- 想法不用完整，抛出来再说；可以说"如果……会怎样？"
-- 可以用"哦！""等等""哎对！""突然想到"这类词开头，表达真实的即兴反应
-- 不评判好坏，先说再想
-- 每次1-3句，宁可短、跳脱，也不要说完整
-- 可以追问对方："你说的X具体指什么？"
-- 【重要】提示里如果出现「真实用户插话」标记，说明有人类加入了头脑风暴——必须直接接ta的话，把ta的想法当作新的起跳板；ta的话比AI同伴更重要，要优先接话
-- 如果你觉得大家的思路已经充分碰撞、方向基本一致了，请说：「我觉得我们的想法已经一致了」，否则不要说这句话
+你的思考与发言方式：
+- 听到别人的想法，要么顺着把它推到更具体、更深的一层（"沿着这个思路，关键是…"），要么从一个全新的角度切入
+- 抛出想法后，主动想一步：它要成立需要什么前提？最大的障碍是什么？怎么验证？——别只停在"如果…会怎样"
+- 鼓励发散，但也要有人负责收敛和筛选：哪些想法真正有潜力，为什么
+- 可以即兴、可以跳跃（"等等，反过来想…""突然意识到一个关键点…"），但每个想法要有实质内容
+- 不急于否定，但可以追问、施压，把模糊的想法逼清晰
+- 每次 2-5 句，可长可短，看想法本身需要多少
+- 当你觉得大家已经把问题的可能性空间充分打开、并对最有价值的方向形成判断时，才说：「我觉得我们的想法已经一致了」
+- 【最高优先级】如果提示里出现「真实用户插话」标记，说明有真人加入了——必须优先接ta的话，把ta的想法或问题当作新的起跳板
 """,
 }
 
@@ -94,6 +96,8 @@ class AgentConfig(BaseModel):
     api_key: str = ""
     model: str = ""
     prompt: str = ""
+    temperature: float = 0.8
+    max_tokens: int = 900
 
 
 class SearchConfig(BaseModel):
@@ -180,25 +184,59 @@ async def _search_tavily(query: str, api_key: str) -> str:
     return "\n".join(parts)
 
 
+async def _stream_llm(provider: str, base_url: str, api_key: str, model: str,
+                      system: str, messages: list[dict],
+                      max_tokens: int = 900, temperature: float = 0.8) -> AsyncGenerator[str, None]:
+    """Stream tokens from either an Anthropic or OpenAI-compatible endpoint."""
+    if provider == "anthropic":
+        from anthropic import AsyncAnthropic
+        kwargs = {"api_key": api_key, "max_retries": 3, "timeout": 60.0}
+        url = base_url.strip()
+        if url:
+            kwargs["base_url"] = url
+        client = AsyncAnthropic(**kwargs)
+        async with client.messages.stream(
+            model=model, max_tokens=max_tokens, system=system,
+            messages=messages, temperature=temperature,
+        ) as stream:
+            async for text in stream.text_stream:
+                yield text
+    else:
+        base = base_url.strip().rstrip("/") or "https://api.openai.com/v1"
+        url = f"{base}/chat/completions"
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        body = {
+            "model": model,
+            "messages": [{"role": "system", "content": system}] + messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "stream": True,
+        }
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            async with client.stream("POST", url, json=body, headers=headers) as resp:
+                resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    data = line[6:]
+                    if data == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(data)
+                        content = chunk["choices"][0]["delta"].get("content") or ""
+                        if content:
+                            yield content
+                    except (json.JSONDecodeError, KeyError, IndexError):
+                        pass
+
+
 # ── LLMAgent ──────────────────────────────────────────────────────────────────
 
 class LLMAgent:
     def __init__(self, config: AgentConfig):
         self.config = config
         self.name = config.name
-        self._anthropic_client = None
         self.search_result: str = ""
-
-    def _get_anthropic_client(self):
-        if self._anthropic_client:
-            return self._anthropic_client
-        from anthropic import AsyncAnthropic
-        kwargs = {"api_key": self.config.api_key, "max_retries": 3, "timeout": 60.0}
-        url = self.config.base_url.strip()
-        if url:
-            kwargs["base_url"] = url
-        self._anthropic_client = AsyncAnthropic(**kwargs)
-        return self._anthropic_client
 
     def _build_system_prompt(self, topic: str, mode: str, other_names: list[str]) -> str:
         others = "、".join(other_names) if other_names else "其他人"
@@ -226,20 +264,26 @@ class LLMAgent:
                 merged.append(msg.copy())
 
         if not merged or merged[-1]["role"] == "assistant":
-            merged.append({"role": "user", "content": "你来说？"})
+            # Agent opens (or speaks right after itself) — prompt for a substantive opener
+            merged.append({"role": "user", "content": "现在轮到你发言。直接抛出你对这个话题的核心判断和理由，开门见山。"})
         else:
+            # IMPORTANT: append guidance to the real transcript instead of replacing it,
+            # so the agent actually sees everything that was said, not just a snippet.
             last = history[-1] if history else None
-            if last and last["agent"] != self.name:
-                if last["agent"] == user_alias:
-                    cue = (
-                        f"【真实用户插话】\n"
-                        f"有一位真实的人类用户（{user_alias}）刚刚加入了讨论，ta说：\n"
-                        f"「{last['content'][:300]}」\n\n"
-                        f"请直接回应{user_alias}说的这句话，把ta当作刚走进讨论圈的真实人类。"
-                    )
-                else:
-                    cue = f"（{last['agent']}刚才说：「{last['content'][:80]}」）\n你来回应。"
-                merged[-1]["content"] = cue
+            if last and last.get("agent") == user_alias:
+                guidance = (
+                    f"\n\n———\n【真实用户插话】\n"
+                    f"一位真实的人类用户（{user_alias}）刚刚加入并发言。请优先、直接回应 {user_alias} 提出的内容或问题，"
+                    f"把ta当作真正参与讨论的人，认真对待。"
+                )
+            else:
+                guidance = (
+                    "\n\n———\n"
+                    "轮到你发言了。请通读上面整场讨论，然后【推进】它，而不是简单附和上一句——\n"
+                    "你可以：挑战某个站不住脚的论点、补上大家忽略的关键角度、用事实或因果机制把某个判断说深，"
+                    "或抛出一个更本质的问题。坚持你自己的视角和立场，不要被多数意见同化。"
+                )
+            merged[-1]["content"] += guidance
 
         return system_prompt, merged
 
@@ -247,48 +291,12 @@ class LLMAgent:
         self, history: list[dict], topic: str, mode: str, other_names: list[str], user_alias: str = ""
     ) -> AsyncGenerator[str, None]:
         system_prompt, messages = self._build_messages(history, topic, mode, other_names, user_alias)
-
-        if self.config.provider == "anthropic":
-            client = self._get_anthropic_client()
-            async with client.messages.stream(
-                model=self.config.model,
-                max_tokens=500,
-                system=system_prompt,
-                messages=messages,
-                temperature=0.8,
-            ) as stream:
-                async for text in stream.text_stream:
-                    yield text
-        else:
-            base = self.config.base_url.strip().rstrip("/") or "https://api.openai.com/v1"
-            url = f"{base}/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {self.config.api_key}",
-                "Content-Type": "application/json",
-            }
-            body = {
-                "model": self.config.model,
-                "messages": [{"role": "system", "content": system_prompt}] + messages,
-                "max_tokens": 500,
-                "temperature": 0.8,
-                "stream": True,
-            }
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                async with client.stream("POST", url, json=body, headers=headers) as resp:
-                    resp.raise_for_status()
-                    async for line in resp.aiter_lines():
-                        if not line.startswith("data: "):
-                            continue
-                        data = line[6:]
-                        if data == "[DONE]":
-                            break
-                        try:
-                            chunk = json.loads(data)
-                            content = chunk["choices"][0]["delta"].get("content") or ""
-                            if content:
-                                yield content
-                        except (json.JSONDecodeError, KeyError, IndexError):
-                            pass
+        async for token in _stream_llm(
+            self.config.provider, self.config.base_url, self.config.api_key, self.config.model,
+            system_prompt, messages,
+            max_tokens=self.config.max_tokens, temperature=self.config.temperature,
+        ):
+            yield token
 
 
 # ── Discussion ────────────────────────────────────────────────────────────────
@@ -302,6 +310,7 @@ class Discussion:
         self.agents = [LLMAgent(ac) for ac in config.agents]
         self.history: list[dict] = []
         self.active = False
+        self.stopped = False
         self.user_queue: asyncio.Queue = asyncio.Queue()
         # Pick a name that isn't already taken by any agent
         taken = {a.name for a in self.agents}
@@ -425,11 +434,69 @@ class Discussion:
         if self.active:
             await self.emit("max_rounds", message=f"已完成 {self.config.max_rounds} 轮讨论。")
 
+        # Synthesis report — skip only if the user manually aborted the discussion
+        if not self.stopped:
+            await self._generate_report()
+
         self.active = False
         await self.emit("finished")
 
+    async def _generate_report(self):
+        """Synthesize the whole discussion into a structured conclusions report."""
+        if not self.agents:
+            return
+        agent_names = {a.name for a in self.agents}
+        agent_msgs = [m for m in self.history if m["agent"] in agent_names]
+        if len(agent_msgs) < 2:
+            return  # too little substance to be worth summarizing
+
+        cfg = self.agents[0].config
+        transcript = "\n".join(
+            f'{m["agent"]}：{m["content"]}'
+            for m in self.history if m["agent"] != "主持人"
+        )
+        system = (
+            "你是一位顶尖的分析师与研讨主持人，擅长从多人讨论中提炼出真正有价值、有判断力的洞察，"
+            "而不是简单罗列每个人说了什么。"
+        )
+        user = f"""以下是一场关于"{self.config.topic}"的多人讨论记录：
+
+{transcript}
+
+请基于以上讨论，写一份结构化的【结论报告】，帮助读者真正想明白这个问题。用 Markdown，包含这些部分：
+
+## 核心结论
+3-5 条最重要的判断，每条先一句话点明，再用一两句说清依据。要有取舍，别和稀泥。
+
+## 已形成的共识
+大家真正达成一致、且站得住脚的点。
+
+## 关键分歧
+没有解决的争议，以及各方的理由——这往往是最值得继续深挖的地方。
+
+## 被忽略或值得追问的角度
+讨论中没充分展开、但其实很关键的点。
+
+## 给你的建议
+如果读者要据此做判断或行动，最该重点考虑什么。
+
+要求：直接、犀利、对读者有用；输出你自己的综合判断，而不是中立地复述所有观点。"""
+
+        await self.emit("report_start")
+        try:
+            async for token in _stream_llm(
+                cfg.provider, cfg.base_url, cfg.api_key, cfg.model,
+                system, [{"role": "user", "content": user}],
+                max_tokens=1800, temperature=0.5,
+            ):
+                await self.emit("report_token", content=token)
+            await self.emit("report_done")
+        except Exception as e:
+            await self.emit("report_failed", message=str(e))
+
     def stop(self):
         self.active = False
+        self.stopped = True
 
 
 # ── WebSocket ─────────────────────────────────────────────────────────────────
@@ -459,7 +526,16 @@ def _synthesize_replay(log: list[dict]) -> list[dict]:
             if tokens:
                 result.append({"type": "token", "agent": evt["agent"], "content": "".join(tokens)})
             result.append({"type": "message_done", "agent": evt["agent"]})
-        elif evt["type"] in ("token", "message_done"):
+        elif evt["type"] == "report_start":
+            result.append(evt)
+            i += 1
+            chunks: list[str] = []
+            while i < len(log) and log[i]["type"] == "report_token":
+                chunks.append(log[i]["content"])
+                i += 1
+            if chunks:
+                result.append({"type": "report_token", "content": "".join(chunks)})
+        elif evt["type"] in ("token", "message_done", "report_token"):
             i += 1  # already handled above
         else:
             result.append(evt)
@@ -557,13 +633,15 @@ async def generate_roster(req: GenerateRosterRequest):
     user_prompt = f"""话题：{req.topic}
 模式：{mode_desc}
 
-请设计 3-5 个中文参与者，使对话有深度、有张力、视角多元。要求：
-- 不同职业/年龄/背景
-- 对该话题有鲜明且各异的立场或视角
-- 人设像真实存在的人，有个性
+请设计 3-5 个中文参与者，目标是让这场对话有真正的深度和张力，能帮人把问题想透。关键要求：
+- 立场要【真正对立或互补】，不能都是同一类人——刻意安排彼此会冲突的视角（例如：乐观派 vs 怀疑派、理论派 vs 实践派、既得利益方 vs 受影响方、长期主义 vs 务实主义）
+- 每个人有不同的职业/年龄/背景，且这个背景能解释ta为什么持这个立场
+- 每个人有一种鲜明的思考风格（比如：爱用数据、爱举反例、爱追问本质、爱从历史类比、爱泼冷水）
+- 人设要像真实存在的人，有个性、有专业判断，不是空洞的标签
+- 在 prompt 里明确写出ta会【反对什么、坚持什么】，这样讨论时ta才不会轻易附和别人
 
 返回格式（严格 JSON）：
-{{"agents": [{{"name": "姓名", "prompt": "你是[姓名]，[年龄]岁，[职业背景]。[性格特点]。[对该话题的立场和思考方式]。[说话风格]。"}}]}}"""
+{{"agents": [{{"name": "姓名", "prompt": "你是[姓名]，[年龄]岁，[职业背景]。[性格与思考风格]。在这个话题上，你坚持认为[立场]，并且会反对[对立观点]，因为[理由]。[说话风格]。"}}]}}"""
 
     try:
         text = await _llm_call(req.provider, req.base_url, req.api_key, req.model, system, user_prompt)
