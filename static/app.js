@@ -150,13 +150,18 @@ class AgentdTalking {
 
     const btn = document.getElementById("aiGenBtn");
     btn.disabled = true;
-    btn.textContent = "生成中…";
+    const searchEnabled = document.getElementById("searchEnabled").checked;
+    const tavilyKey = document.getElementById("tavilyApiKey").value.trim();
+    btn.textContent = searchEnabled && tavilyKey ? "检索+生成中…" : "生成中…";
 
     try {
       const resp = await fetch("/api/generate-roster", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, mode: document.getElementById("mode").value, ...llm }),
+        body: JSON.stringify({
+          topic, mode: document.getElementById("mode").value, ...llm,
+          tavily_api_key: searchEnabled && tavilyKey ? tavilyKey : "",
+        }),
       });
       const data = await resp.json();
       if (!data.success) { alert("生成失败：" + data.message); return; }

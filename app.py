@@ -120,6 +120,7 @@ class GenerateRosterRequest(BaseModel):
     base_url: str = ""
     api_key: str = ""
     model: str = ""
+    tavily_api_key: str = ""
 
 
 # ── Shared helpers ────────────────────────────────────────────────────────────
@@ -629,16 +630,29 @@ async def generate_roster(req: GenerateRosterRequest):
 
     mode_desc = {"discussion": "讨论", "debate": "辩论", "brainstorm": "头脑风暴"}.get(req.mode, "讨论")
 
+    # Optional: enrich with live web context before generating personas
+    search_context = ""
+    if req.tavily_api_key:
+        try:
+            search_context = await _search_tavily(req.topic, req.tavily_api_key)
+        except Exception:
+            pass  # search failure is non-fatal; fall back to pure LLM knowledge
+
+    search_block = ""
+    if search_context:
+        search_block = f"\n\n【当前互联网资料】以下是关于该话题的最新背景信息，请参考它来确保角色的立场和争议点贴近现实：\n{search_context}\n"
+
     system = "你是一个对话设计师。根据话题和模式设计讨论参与者。只输出 JSON，不要有任何额外文字或代码块标记。"
     user_prompt = f"""话题：{req.topic}
 模式：{mode_desc}
-
+{search_block}
 请设计 3-5 个中文参与者，目标是让这场对话有真正的深度和张力，能帮人把问题想透。关键要求：
 - 立场要【真正对立或互补】，不能都是同一类人——刻意安排彼此会冲突的视角（例如：乐观派 vs 怀疑派、理论派 vs 实践派、既得利益方 vs 受影响方、长期主义 vs 务实主义）
 - 每个人有不同的职业/年龄/背景，且这个背景能解释ta为什么持这个立场
 - 每个人有一种鲜明的思考风格（比如：爱用数据、爱举反例、爱追问本质、爱从历史类比、爱泼冷水）
 - 人设要像真实存在的人，有个性、有专业判断，不是空洞的标签
 - 在 prompt 里明确写出ta会【反对什么、坚持什么】，这样讨论时ta才不会轻易附和别人
+- 如果上方提供了互联网资料，让角色的立场和知识体现最新的真实争议，而不是模型训练数据里的陈旧框架
 
 返回格式（严格 JSON）：
 {{"agents": [{{"name": "姓名", "prompt": "你是[姓名]，[年龄]岁，[职业背景]。[性格与思考风格]。在这个话题上，你坚持认为[立场]，并且会反对[对立观点]，因为[理由]。[说话风格]。"}}]}}"""
