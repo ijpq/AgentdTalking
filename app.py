@@ -89,6 +89,34 @@ MODE_SYSTEM_PROMPTS = {
 }
 
 
+PHASE_LABELS = {
+    "opening":     "立场建立",
+    "clash":       "深度交锋",
+    "convergence": "收敛评估",
+}
+
+PHASE_AGENT_SUFFIXES = {
+    "opening": (
+        "\n\n【当前阶段：立场建立（第1阶段）】"
+        "请在本次发言中清晰陈述你对这个话题最核心的判断，以及支撑它的1-2条关键理由。"
+        "不要试图一次性回应所有人——先把你自己的立场立住，让其他人知道你认为什么是真正重要的。"
+    ),
+    "clash": (
+        "\n\n【当前阶段：深度交锋（第2阶段）】"
+        "请找出其他人论述中最薄弱的环节，集中火力——指出它的前提错误、逻辑跳跃、以偏概全或忽略的关键反例。"
+        "也可以主动亮出你最强的正面论据来压制对方。不要面面俱到，打最致命的一拳。"
+    ),
+    "convergence": (
+        "\n\n【当前阶段：收敛评估（第3阶段）】"
+        "请诚实评估讨论到了哪里："
+        "(1) 哪些点上你认为大家已经真正形成了共识（有论据支撑的，不是表面妥协）？"
+        "(2) 哪些分歧是本质性的、很难消除的，核心原因是什么？"
+        "(3) 有没有全程被忽略的关键角度？"
+        "不要为了结束而附和，但也要如实评估。"
+    ),
+}
+
+
 class AgentConfig(BaseModel):
     name: str
     provider: str = "openai"
@@ -111,6 +139,10 @@ class DiscussionConfig(BaseModel):
     max_rounds: int = 10
     agents: list[AgentConfig] = []
     search: SearchConfig | None = None
+    enable_moderator: bool = True
+    enable_phases: bool = True
+    enable_think: bool = False
+    summary_interval: int = 3
 
 
 class GenerateRosterRequest(BaseModel):
@@ -239,16 +271,27 @@ class LLMAgent:
         self.name = config.name
         self.search_result: str = ""
 
-    def _build_system_prompt(self, topic: str, mode: str, other_names: list[str]) -> str:
+    def _build_system_prompt(self, topic: str, mode: str, other_names: list[str],
+                              phase: str = "", thinking: str = "", summary: str = "") -> str:
         others = "、".join(other_names) if other_names else "其他人"
         template = MODE_SYSTEM_PROMPTS.get(mode, MODE_SYSTEM_PROMPTS["discussion"])
         prompt = template.format(persona=self.config.prompt, others=others, topic=topic)
+        if phase:
+            prompt += PHASE_AGENT_SUFFIXES.get(phase, "")
+        if summary:
+            prompt += (
+                f"\n\n## 到目前为止的讨论进展快照\n{summary}\n"
+                "请在此基础上继续推进，不要重复已充分讨论过的内容。"
+            )
+        if thinking:
+            prompt += f"\n\n## 你在本轮发言前的私下推理（仅你可见，不要在正式发言里提及这个推理过程）\n{thinking}"
         if self.search_result:
             prompt += f"\n\n## 你搜到的最新资料（来自互联网，仅供参考）\n{self.search_result}"
         return prompt
 
-    def _build_messages(self, history: list[dict], topic: str, mode: str, other_names: list[str], user_alias: str = ""):
-        system_prompt = self._build_system_prompt(topic, mode, other_names)
+    def _build_messages(self, history: list[dict], topic: str, mode: str, other_names: list[str],
+                         user_alias: str = "", phase: str = "", thinking: str = "", summary: str = ""):
+        system_prompt = self._build_system_prompt(topic, mode, other_names, phase, thinking, summary)
 
         raw = []
         for msg in history:
@@ -289,9 +332,12 @@ class LLMAgent:
         return system_prompt, merged
 
     async def stream_response(
-        self, history: list[dict], topic: str, mode: str, other_names: list[str], user_alias: str = ""
+        self, history: list[dict], topic: str, mode: str, other_names: list[str],
+        user_alias: str = "", phase: str = "", thinking: str = "", summary: str = ""
     ) -> AsyncGenerator[str, None]:
-        system_prompt, messages = self._build_messages(history, topic, mode, other_names, user_alias)
+        system_prompt, messages = self._build_messages(
+            history, topic, mode, other_names, user_alias, phase, thinking, summary
+        )
         async for token in _stream_llm(
             self.config.provider, self.config.base_url, self.config.api_key, self.config.model,
             system_prompt, messages,
@@ -313,6 +359,9 @@ class Discussion:
         self.active = False
         self.stopped = False
         self.user_queue: asyncio.Queue = asyncio.Queue()
+        self.target_agent: str | None = None   # set when user @-mentions an agent
+        self.current_phase: str = ""
+        self.last_summary: str = ""
         # Pick a name that isn't already taken by any agent
         taken = {a.name for a in self.agents}
         pool  = [n for n in _USER_ALIASES if n not in taken]
@@ -361,12 +410,127 @@ class Discussion:
             for content in last_by_agent.values()
         )
 
+    def _get_phase(self, round_idx: int) -> str:
+        if not self.config.enable_phases:
+            return ""
+        n = self.config.max_rounds
+        if round_idx < max(1, n // 3):
+            return "opening"
+        elif round_idx < max(2, (2 * n) // 3):
+            return "clash"
+        else:
+            return "convergence"
+
+    async def _think_for_agent(self, agent: "LLMAgent", other_names: list[str]) -> str:
+        """Private chain-of-thought reasoning pass; result is injected into agent's system prompt."""
+        recent = self.history[-12:]
+        transcript = "\n".join(f'{m["agent"]}：{m["content"][:120]}' for m in recent)
+        topic = self.config.topic
+        system = (
+            f"你是{agent.name}，现在要在关于「{topic}」的讨论中发言。"
+            f"以下是你的身份设定：{agent.config.prompt}\n\n"
+            "在正式发言前，请先进行私下思考。这个推理过程只有你能看到。"
+        )
+        user = f"""目前讨论进展：
+{transcript}
+
+请用80-120字回答以下问题作为你的私下推理：
+1. 当前讨论的核心争议点是什么？
+2. 我的立场和最强支撑论据是什么？
+3. 对方目前最难被反驳的论点是什么？我该如何应对？
+4. 我这次发言应该聚焦攻击或建立哪个具体点？"""
+        try:
+            return await _llm_call(
+                agent.config.provider, agent.config.base_url,
+                agent.config.api_key, agent.config.model, system, user
+            )
+        except Exception:
+            return ""
+
+    async def _moderator_check(self, round_idx: int) -> None:
+        """After each round, analyze the discussion and optionally inject a moderator question."""
+        if round_idx < 1 or not self.agents:
+            return
+        agent = self.agents[0]
+        recent = self.history[-18:]
+        transcript = "\n".join(f'{m["agent"]}：{m["content"][:200]}' for m in recent)
+        system = "你是经验丰富的研讨主持人。分析讨论健康度，决定是否干预。"
+        user = f"""话题：{self.config.topic}
+
+最近的讨论：
+{transcript}
+
+用严格标准判断是否出现以下问题（任意一条成立即需干预）：
+- 参与者开始互相附和，连续两轮没有出现真正的反驳或新论点
+- 同一个核心论点被重复了3次以上却没有任何推进
+- 有一个对这个话题明显重要的角度被全程忽略
+
+如果需要干预，输出一个具体、尖锐的主持人提问（一句话，以「❓」开头），用来打破僵局或强制搬出被忽略的角度。
+如果讨论健康，只输出：无需干预
+
+只能输出以上两种格式之一，不要其他文字。"""
+        try:
+            result = (await _llm_call(
+                agent.config.provider, agent.config.base_url,
+                agent.config.api_key, agent.config.model, system, user
+            )).strip()
+            if result.startswith("❓"):
+                q = result[1:].strip()
+                self.history.append({"agent": "主持人", "content": q})
+                await self.emit("moderator_question", content=q)
+        except Exception:
+            pass
+
+    async def _generate_summary(self, round_idx: int) -> None:
+        """Emit a mid-discussion progress snapshot and cache it for agent context."""
+        if not self.agents:
+            return
+        agent = self.agents[0]
+        msgs = [m for m in self.history if m["agent"] != "主持人"]
+        transcript = "\n".join(f'{m["agent"]}：{m["content"][:200]}' for m in msgs)
+        system = "你是高效的会议记录员。从讨论中提炼进展，简明扼要，每项不超过2句话。"
+        user = f"""话题：{self.config.topic}（第 {round_idx + 1} 轮结束）
+
+讨论记录：
+{transcript}
+
+请按以下格式输出进展快照（严格 Markdown，不要额外文字）：
+
+**✅ 已确立的共识**
+（具体列出；若暂无则写"暂无"）
+
+**⚔️ 核心争议（仍未解决）**
+（列出各方立场及核心分歧）
+
+**🔲 尚未充分讨论的关键角度**
+（列出被忽略但对该话题重要的维度）"""
+        try:
+            result = (await _llm_call(
+                agent.config.provider, agent.config.base_url,
+                agent.config.api_key, agent.config.model, system, user
+            )).strip()
+            self.last_summary = result
+            await self.emit("summary", round=round_idx + 1, content=result)
+        except Exception:
+            pass
+
     async def _drain_user_queue(self):
-        """Inject any pending user messages into history and emit them."""
+        """Inject any pending user messages into history; parse @mention to target an agent."""
         while not self.user_queue.empty():
             content = self.user_queue.get_nowait()
+            # Parse @AgentName — set target for this round
+            m_at = re.match(r'^@(\S+)\s*(.*)', content.strip(), re.DOTALL)
+            if m_at:
+                mention = m_at.group(1)
+                rest    = m_at.group(2).strip()
+                matched = next((a for a in self.agents if mention in a.name), None)
+                if matched:
+                    self.target_agent = matched.name
+                    if rest:
+                        content = rest
             self.history.append({"agent": self.user_alias, "content": content})
-            await self.emit("user_spoke", agent=self.user_alias, content=content)
+            await self.emit("user_spoke", agent=self.user_alias, content=content,
+                            target=self.target_agent)
 
     async def run(self):
         self.active = True
@@ -397,24 +561,43 @@ class Discussion:
             if not self.active:
                 break
 
+            # ── Phase transition ──────────────────────────────────────────────
+            new_phase = self._get_phase(round_idx)
+            if new_phase and new_phase != self.current_phase:
+                self.current_phase = new_phase
+                await self.emit("phase_change", phase=new_phase,
+                                label=PHASE_LABELS.get(new_phase, ""))
+
             await self.emit("round", number=round_idx + 1)
 
-            for agent in self.agents:
+            # ── Determine which agents speak this round ────────────────────────
+            # When user @-mentioned someone, only that agent responds; then resume normally.
+            if self.target_agent:
+                agents_this_round = [a for a in self.agents if a.name == self.target_agent]
+            else:
+                agents_this_round = self.agents
+
+            for agent in agents_this_round:
                 if not self.active:
                     break
 
-                # Drain user messages before this agent speaks
                 await self._drain_user_queue()
-
                 other_names = self._other_names(agent)
 
+                # ── Hidden chain-of-thought ───────────────────────────────────
+                thinking = ""
+                if self.config.enable_think:
+                    await self.emit("deep_thinking", agent=agent.name)
+                    thinking = await self._think_for_agent(agent, other_names)
+
                 await self.emit("thinking", agent=agent.name)
-                await asyncio.sleep(random.uniform(0.8, 2.0))
+                await asyncio.sleep(random.uniform(0.5, 1.5))
 
                 full_text = ""
                 try:
                     async for token in agent.stream_response(
-                        self.history, self.config.topic, self.config.mode, other_names, self.user_alias
+                        self.history, self.config.topic, self.config.mode, other_names,
+                        self.user_alias, self.current_phase, thinking, self.last_summary
                     ):
                         if not self.active:
                             break
@@ -427,6 +610,19 @@ class Discussion:
                 except Exception as e:
                     await self.emit("error", agent=agent.name, message=str(e))
 
+            # Clear @mention target after round completes
+            self.target_agent = None
+
+            # ── Active moderator ──────────────────────────────────────────────
+            if self.config.enable_moderator and self.active:
+                await self._moderator_check(round_idx)
+
+            # ── Mid-discussion summary snapshot ───────────────────────────────
+            si = self.config.summary_interval
+            if si > 0 and self.active and (round_idx + 1) % si == 0:
+                await self._generate_summary(round_idx)
+
+            # ── Consensus check ───────────────────────────────────────────────
             if self._check_consensus():
                 await self.emit("consensus", message="所有参与者已达成共识，讨论结束。")
                 self.active = False
@@ -435,7 +631,7 @@ class Discussion:
         if self.active:
             await self.emit("max_rounds", message=f"已完成 {self.config.max_rounds} 轮讨论。")
 
-        # Synthesis report — skip only if the user manually aborted the discussion
+        # Synthesis report — skip only if the user manually aborted
         if not self.stopped:
             await self._generate_report()
 

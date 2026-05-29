@@ -105,6 +105,53 @@
       </div>
     </div>
 
+    <!-- Advanced settings -->
+    <div class="adv-section">
+      <div class="adv-header" id="advHeader">
+        <span>⚙️ 高级设置</span>
+        <span class="collapse-arrow" id="advArrow">&#9654;</span>
+      </div>
+      <div class="adv-body hidden" id="advBody">
+        <div class="adv-row">
+          <div class="adv-label">
+            <span>🎭 结构化阶段</span>
+            <span class="adv-desc">按立场建立→交锋→收敛自动切换指令</span>
+          </div>
+          <div class="toggle-switch" id="phasesToggle">
+            <input type="checkbox" id="enablePhases" checked>
+            <span class="toggle-slider"></span>
+          </div>
+        </div>
+        <div class="adv-row">
+          <div class="adv-label">
+            <span>🧠 私下思考（CoT）</span>
+            <span class="adv-desc">发言前先做一轮隐藏推理，更深刻但 API 调用翻倍</span>
+          </div>
+          <div class="toggle-switch" id="thinkToggle">
+            <input type="checkbox" id="enableThink">
+            <span class="toggle-slider"></span>
+          </div>
+        </div>
+        <div class="adv-row">
+          <div class="adv-label">
+            <span>🎙 主动主持人</span>
+            <span class="adv-desc">每轮结束后检测讨论是否卡壳，自动插问</span>
+          </div>
+          <div class="toggle-switch" id="moderatorToggle">
+            <input type="checkbox" id="enableModerator" checked>
+            <span class="toggle-slider"></span>
+          </div>
+        </div>
+        <div class="adv-row adv-row-input">
+          <div class="adv-label">
+            <span>📋 进展快照间隔</span>
+            <span class="adv-desc">每 N 轮生成一次讨论进展摘要（0 = 禁用）</span>
+          </div>
+          <input type="number" id="summaryInterval" value="3" min="0" max="20" class="adv-number">
+        </div>
+      </div>
+    </div>
+
     </div><!-- /sidebar-scroll -->
 
     <button id="startBtn" class="primary-btn">开始讨论</button>
@@ -182,7 +229,7 @@
     </div>
 
     <div class="user-input-bar hidden" id="userInputBar">
-      <input type="text" id="userInput" placeholder="加入讨论…（Enter 发送）" autocomplete="off">
+      <input type="text" id="userInput" placeholder="加入讨论…（Enter 发送 · @名字 点名某人回应）" autocomplete="off">
       <button id="userSendBtn">发送</button>
     </div>
   </main>

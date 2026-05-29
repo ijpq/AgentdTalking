@@ -14,14 +14,18 @@ class AgentdTalking {
     this.userAlias      = "你";
     this.currentTopic   = "";
     this.chatHistory    = [];          // [{type, agent?, content, number?}]
-    this.currentStreamEl    = null;
-    this.currentStreamAgent = null;
+    this.currentStreamEl      = null;
+    this.currentStreamAgent   = null;
+    this.currentDeepThinkingEl = null;
     this.reportEl       = null;
     this.reportText     = "";
     this.agentColorMap  = { "你": USER_COLOR };
 
     this._bindUI();
     this._checkForSession();
+    if (!new URLSearchParams(location.search).get("session")) {
+      this._checkSavedState();
+    }
   }
 
   // ── UI binding ──────────────────────────────────────────────────────────────
@@ -40,6 +44,21 @@ class AgentdTalking {
       const arrow = document.getElementById("globalLlmArrow");
       body.classList.toggle("hidden");
       arrow.innerHTML = body.classList.contains("hidden") ? "&#9654;" : "&#9660;";
+    });
+
+    // Advanced settings collapsible
+    document.getElementById("advHeader").addEventListener("click", () => {
+      const body  = document.getElementById("advBody");
+      const arrow = document.getElementById("advArrow");
+      body.classList.toggle("hidden");
+      arrow.innerHTML = body.classList.contains("hidden") ? "&#9654;" : "&#9660;";
+    });
+    // Toggle switch clicks for advanced settings
+    ["phasesToggle", "thinkToggle", "moderatorToggle"].forEach((id) => {
+      document.getElementById(id).addEventListener("click", () => {
+        const cb = document.getElementById(id).querySelector("input[type=checkbox]");
+        cb.checked = !cb.checked;
+      });
     });
 
     // Global LLM test button
@@ -305,10 +324,14 @@ class AgentdTalking {
     const searchEnabled = document.getElementById("searchEnabled").checked;
     const tavilyKey     = document.getElementById("tavilyApiKey").value.trim();
     return {
-      topic:      document.getElementById("topic").value.trim(),
-      mode:       document.getElementById("mode").value,
-      max_rounds: parseInt(document.getElementById("maxRounds").value) || 10,
-      agents:     this.agents.map((a) => ({
+      topic:            document.getElementById("topic").value.trim(),
+      mode:             document.getElementById("mode").value,
+      max_rounds:       parseInt(document.getElementById("maxRounds").value) || 10,
+      enable_phases:    document.getElementById("enablePhases").checked,
+      enable_think:     document.getElementById("enableThink").checked,
+      enable_moderator: document.getElementById("enableModerator").checked,
+      summary_interval: parseInt(document.getElementById("summaryInterval").value) || 0,
+      agents:           this.agents.map((a) => ({
         name: a.name, provider: a.provider, base_url: a.base_url,
         api_key: a.api_key, model: a.model, prompt: a.prompt,
       })),
@@ -366,9 +389,10 @@ class AgentdTalking {
 
   _clearMessages() {
     document.getElementById("messages").innerHTML = "";
-    this.chatHistory        = [];
-    this.currentStreamEl    = null;
-    this.currentStreamAgent = null;
+    this.chatHistory           = [];
+    this.currentStreamEl       = null;
+    this.currentStreamAgent    = null;
+    this.currentDeepThinkingEl = null;
   }
 
   // ── User message ────────────────────────────────────────────────────────────
@@ -429,6 +453,23 @@ class AgentdTalking {
         if (this.isViewer) this._appendUserMessage(evt.content, evt.agent);
         break;
 
+      case "phase_change":
+        this._appendPhaseChange(evt.label || evt.phase);
+        break;
+
+      case "deep_thinking":
+        this._appendDeepThinking(evt.agent);
+        break;
+
+      case "moderator_question":
+        this._finishMessage();
+        this._appendModeratorQuestion(evt.content);
+        break;
+
+      case "summary":
+        this._appendSummary(evt.round, evt.content);
+        break;
+
       case "consensus":
         this._finishMessage();
         this._appendConsensus(evt.message);
@@ -472,6 +513,8 @@ class AgentdTalking {
         document.getElementById("chatStatus").textContent = "已结束";
         if (this.chatHistory.length > 0) {
           document.getElementById("exportBtn").classList.remove("hidden");
+          this._appendQualityDashboard();
+          this._saveToStorage();
         }
         break;
     }
@@ -487,48 +530,38 @@ class AgentdTalking {
     return this.agentColorMap[name];
   }
 
-  _appendSystem(text) {
-    this.chatHistory.push({ type: "system", content: text });
+  _appendSystemDOM(text) {
     const el = document.createElement("div");
     el.className = "system-message";
     el.innerHTML = `<span>${this._escapeHtml(text)}</span>`;
     document.getElementById("messages").appendChild(el);
   }
+  _appendSystem(text) {
+    this.chatHistory.push({ type: "system", content: text });
+    this._appendSystemDOM(text);
+  }
 
-  _appendRound(n) {
-    this.chatHistory.push({ type: "round", number: n });
+  _appendRoundDOM(n) {
     const el = document.createElement("div");
     el.className = "round-indicator";
     el.innerHTML = `<span>第 ${n} 轮</span>`;
     document.getElementById("messages").appendChild(el);
+  }
+  _appendRound(n) {
+    this.chatHistory.push({ type: "round", number: n });
+    this._appendRoundDOM(n);
     if (!this.isViewer) document.getElementById("chatStatus").textContent = `第 ${n} 轮`;
   }
 
-  _appendConsensus(text) {
-    this.chatHistory.push({ type: "consensus", content: text });
+  _appendConsensusDOM(text) {
     const el = document.createElement("div");
     el.className = "consensus-message";
     el.innerHTML = `<span>${this._escapeHtml(text)}</span>`;
     document.getElementById("messages").appendChild(el);
   }
-
-  _appendThinking(name) {
-    this._finishMessage();
-    const color = this._getColor(name);
-    const el = document.createElement("div");
-    el.className = "message";
-    el.setAttribute("data-agent", name);
-    el.innerHTML = `
-      <div class="message-avatar" style="background:${color}">${name.charAt(0)}</div>
-      <div class="message-body">
-        <div class="message-name" style="color:${color}">${this._escapeHtml(name)}</div>
-        <div class="message-content">
-          <div class="typing-indicator"><span></span><span></span><span></span></div>
-        </div>
-      </div>`;
-    document.getElementById("messages").appendChild(el);
-    this.currentStreamEl    = el;
-    this.currentStreamAgent = name;
+  _appendConsensus(text) {
+    this.chatHistory.push({ type: "consensus", content: text });
+    this._appendConsensusDOM(text);
   }
 
   _appendToken(name, token) {
@@ -542,15 +575,7 @@ class AgentdTalking {
   _appendUserMessage(content, displayName = null) {
     const name = displayName || this.userAlias;
     this.chatHistory.push({ type: "user", agent: name, content });
-    const el = document.createElement("div");
-    el.className = "message message-user";
-    el.innerHTML = `
-      <div class="message-avatar" style="background:${USER_COLOR}">${this._escapeHtml(name.charAt(0))}</div>
-      <div class="message-body">
-        <div class="message-name" style="color:${USER_COLOR}">${this._escapeHtml(name)}</div>
-        <div class="message-content">${this._escapeHtml(content)}</div>
-      </div>`;
-    document.getElementById("messages").appendChild(el);
+    this._appendUserMessageDOM(content, name);
   }
 
   _finishMessage() {
@@ -629,6 +654,247 @@ class AgentdTalking {
       .replace(/`(.+?)`/g, "<code>$1</code>");
   }
 
+  // ── Phase / moderator / summary / dashboard DOM builders ─────────────────────
+
+  _appendPhaseChangeDOM(label) {
+    const el = document.createElement("div");
+    el.className = "phase-indicator";
+    el.innerHTML = `<span class="phase-pill">▶ 阶段切换：${this._escapeHtml(label)}</span>`;
+    document.getElementById("messages").appendChild(el);
+  }
+  _appendPhaseChange(label) {
+    this.chatHistory.push({ type: "phase", content: label });
+    this._appendPhaseChangeDOM(label);
+  }
+
+  _appendDeepThinking(name) {
+    // Transient "deep thinking" indicator that resolves into the normal thinking bubble
+    const existing = document.querySelector(".deep-thinking-row");
+    if (existing) existing.remove();
+    const el = document.createElement("div");
+    el.className = "deep-thinking-row";
+    el.innerHTML = `<span class="deep-thinking-pill">🧠 ${this._escapeHtml(name)} 私下推理中…</span>`;
+    document.getElementById("messages").appendChild(el);
+    this.currentDeepThinkingEl = el;
+  }
+
+  _appendThinking(name) {
+    // Remove deep-thinking banner if present
+    if (this.currentDeepThinkingEl) {
+      this.currentDeepThinkingEl.remove();
+      this.currentDeepThinkingEl = null;
+    }
+    this._finishMessage();
+    const color = this._getColor(name);
+    const el = document.createElement("div");
+    el.className = "message";
+    el.setAttribute("data-agent", name);
+    el.innerHTML = `
+      <div class="message-avatar" style="background:${color}">${name.charAt(0)}</div>
+      <div class="message-body">
+        <div class="message-name" style="color:${color}">${this._escapeHtml(name)}</div>
+        <div class="message-content">
+          <div class="typing-indicator"><span></span><span></span><span></span></div>
+        </div>
+      </div>`;
+    document.getElementById("messages").appendChild(el);
+    this.currentStreamEl    = el;
+    this.currentStreamAgent = name;
+  }
+
+  _appendModeratorQuestionDOM(content) {
+    const el = document.createElement("div");
+    el.className = "moderator-question";
+    el.innerHTML = `<span class="mq-badge">🎙 主持人</span><span class="mq-text">${this._escapeHtml(content)}</span>`;
+    document.getElementById("messages").appendChild(el);
+  }
+  _appendModeratorQuestion(content) {
+    this.chatHistory.push({ type: "moderator_q", content });
+    this._appendModeratorQuestionDOM(content);
+  }
+
+  _appendSummaryDOM(round, content) {
+    const el = document.createElement("div");
+    el.className = "summary-card";
+    el.innerHTML = `
+      <div class="summary-header" data-open="false">
+        📋 第 ${round} 轮进展快照 <span class="summary-toggle">▼ 展开</span>
+      </div>
+      <div class="summary-body hidden">${this._renderMarkdown(this._escapeHtml(content))}</div>`;
+    el.querySelector(".summary-header").addEventListener("click", function() {
+      const body  = el.querySelector(".summary-body");
+      const tog   = el.querySelector(".summary-toggle");
+      const open  = this.dataset.open === "true";
+      body.classList.toggle("hidden", open);
+      tog.textContent = open ? "▼ 展开" : "▲ 收起";
+      this.dataset.open = String(!open);
+    });
+    document.getElementById("messages").appendChild(el);
+  }
+  _appendSummary(round, content) {
+    this.chatHistory.push({ type: "summary", round, content });
+    this._appendSummaryDOM(round, content);
+  }
+
+  _appendCompletedMessage(name, content) {
+    const color = this._getColor(name);
+    const el = document.createElement("div");
+    el.className = "message";
+    el.innerHTML = `
+      <div class="message-avatar" style="background:${color}">${name.charAt(0)}</div>
+      <div class="message-body">
+        <div class="message-name" style="color:${color}">${this._escapeHtml(name)}</div>
+        <div class="message-content">${this._escapeHtml(content)}</div>
+      </div>`;
+    document.getElementById("messages").appendChild(el);
+  }
+
+  _appendUserMessageDOM(content, displayName) {
+    const name = displayName || this.userAlias;
+    const el = document.createElement("div");
+    el.className = "message message-user";
+    el.innerHTML = `
+      <div class="message-avatar" style="background:${USER_COLOR}">${this._escapeHtml(name.charAt(0))}</div>
+      <div class="message-body">
+        <div class="message-name" style="color:${USER_COLOR}">${this._escapeHtml(name)}</div>
+        <div class="message-content">${this._escapeHtml(content)}</div>
+      </div>`;
+    document.getElementById("messages").appendChild(el);
+  }
+
+  _appendQualityDashboard() {
+    const metrics = this._computeQuality();
+    if (!metrics) return;
+    const el = document.createElement("div");
+    el.className = "quality-dashboard";
+    const bars = Object.entries(metrics.byAgent)
+      .sort((a, b) => b[1].msgs - a[1].msgs)
+      .map(([name, d]) => {
+        const color = this._getColor(name);
+        const pct   = Math.round((d.msgs / metrics.totalAgentMsgs) * 100);
+        return `<div class="qd-agent-row">
+          <div class="qd-name" style="color:${color}">${this._escapeHtml(name)}</div>
+          <div class="qd-bar-wrap"><div class="qd-bar" style="width:${pct}%;background:${color}"></div></div>
+          <div class="qd-stat">${d.msgs} 条</div>
+        </div>`;
+      }).join("");
+    el.innerHTML = `
+      <div class="qd-header">📊 讨论质量指标</div>
+      <div class="qd-body">
+        <div class="qd-grid">
+          <div class="qd-kpi"><div class="qd-kpi-val">${metrics.rounds}</div><div class="qd-kpi-label">完成轮数</div></div>
+          <div class="qd-kpi"><div class="qd-kpi-val">${metrics.totalAgentMsgs}</div><div class="qd-kpi-label">AI 发言数</div></div>
+          <div class="qd-kpi"><div class="qd-kpi-val">${metrics.disagreeRate}%</div><div class="qd-kpi-label">分歧密度</div></div>
+          <div class="qd-kpi"><div class="qd-kpi-val">${metrics.moderatorCount}</div><div class="qd-kpi-label">主持人干预</div></div>
+        </div>
+        <div class="qd-section-label">发言分布</div>
+        ${bars}
+      </div>`;
+    document.getElementById("messages").appendChild(el);
+  }
+
+  _computeQuality() {
+    if (!this.chatHistory.length) return null;
+    const agentMsgs = this.chatHistory.filter(h => h.type === "message");
+    if (!agentMsgs.length) return null;
+    const byAgent = {};
+    for (const h of agentMsgs) {
+      if (!byAgent[h.agent]) byAgent[h.agent] = { msgs: 0, chars: 0 };
+      byAgent[h.agent].msgs++;
+      byAgent[h.agent].chars += (h.content || "").length;
+    }
+    const allText = agentMsgs.map(h => h.content || "").join(" ");
+    const disagree = (allText.match(/不对|不是|但是|然而|相反|错误|漏洞|问题|反对|质疑|等等|不认为|不成立|站不住脚|这个逻辑|这个前提/g) || []).length;
+    const agree    = (allText.match(/对对|同意|确实|说得对|有道理|我也|没错|是的|赞同|完全正确/g) || []).length;
+    const total = disagree + agree;
+    return {
+      byAgent,
+      rounds:         this.chatHistory.filter(h => h.type === "round").length,
+      totalAgentMsgs: agentMsgs.length,
+      disagreeRate:   total > 0 ? Math.round(disagree / total * 100) : 0,
+      moderatorCount: this.chatHistory.filter(h => h.type === "moderator_q").length,
+    };
+  }
+
+  // ── LocalStorage save / restore ───────────────────────────────────────────────
+
+  _saveToStorage() {
+    try {
+      const state = {
+        savedAt:      Date.now(),
+        currentTopic: this.currentTopic,
+        chatHistory:  this.chatHistory,
+        agentColorMap: this.agentColorMap,
+      };
+      localStorage.setItem("agentdtalking_history", JSON.stringify(state));
+    } catch (e) {}
+  }
+
+  _checkSavedState() {
+    try {
+      const raw = localStorage.getItem("agentdtalking_history");
+      if (!raw) return;
+      const state = JSON.parse(raw);
+      if (!state.chatHistory?.length || !state.currentTopic) return;
+      const age = Math.round((Date.now() - state.savedAt) / 60000);
+      const label = age < 60 ? `${age} 分钟前` : `${Math.round(age / 60)} 小时前`;
+      this._showRestoreBanner(state, label);
+    } catch (e) {}
+  }
+
+  _showRestoreBanner(state, label) {
+    const banner = document.createElement("div");
+    banner.className = "restore-banner";
+    banner.id = "restoreBanner";
+    banner.innerHTML = `
+      <span>💾 发现上次讨论记录（${this._escapeHtml(state.currentTopic.slice(0, 30))}…，${label}）</span>
+      <button id="restoreYes">恢复</button>
+      <button id="restoreNo">忽略</button>`;
+    document.body.prepend(banner);
+    document.getElementById("restoreYes").addEventListener("click", () => {
+      this._restoreHistory(state);
+      banner.remove();
+    });
+    document.getElementById("restoreNo").addEventListener("click", () => {
+      localStorage.removeItem("agentdtalking_history");
+      banner.remove();
+    });
+  }
+
+  _restoreHistory(state) {
+    const saved = state.chatHistory || [];
+    this.currentTopic  = state.currentTopic;
+    this.agentColorMap = { ...{ "你": USER_COLOR }, ...(state.agentColorMap || {}) };
+    document.getElementById("chatTopic").textContent = state.currentTopic;
+    document.getElementById("chatStatus").classList.remove("hidden");
+    document.getElementById("chatStatus").textContent = "已恢复";
+    document.getElementById("exportBtn").classList.remove("hidden");
+    this._clearMessages();
+    // Replay saved history into DOM without re-pushing to chatHistory
+    for (const h of saved) {
+      if (h.type === "round")         { this._appendRoundDOM(h.number); }
+      else if (h.type === "system")   { this._appendSystemDOM(h.content); }
+      else if (h.type === "consensus"){ this._appendConsensusDOM(h.content); }
+      else if (h.type === "phase")    { this._appendPhaseChangeDOM(h.content); }
+      else if (h.type === "moderator_q") { this._appendModeratorQuestionDOM(h.content); }
+      else if (h.type === "summary")  { this._appendSummaryDOM(h.round, h.content); }
+      else if (h.type === "report")   { this._appendRestoredReport(h.content); }
+      else if (h.type === "message")  { this._appendCompletedMessage(h.agent, h.content); }
+      else if (h.type === "user")     { this._appendUserMessageDOM(h.content, h.agent); }
+    }
+    this.chatHistory = saved;
+    this._appendQualityDashboard();
+  }
+
+  _appendRestoredReport(content) {
+    const el = document.createElement("div");
+    el.className = "report-card";
+    el.innerHTML = `
+      <div class="report-header">📊 结论报告</div>
+      <div class="report-body">${this._renderMarkdown(this._escapeHtml(content))}</div>`;
+    document.getElementById("messages").appendChild(el);
+  }
+
   // ── Export ──────────────────────────────────────────────────────────────────
 
   exportDiscussion() {
@@ -643,8 +909,14 @@ class AgentdTalking {
     for (const h of this.chatHistory) {
       if (h.type === "round") {
         lines.push(`\n---\n\n**第 ${h.number} 轮**\n\n`);
+      } else if (h.type === "phase") {
+        lines.push(`\n> 🔄 阶段：${h.content}\n\n`);
       } else if (h.type === "system") {
         lines.push(`> ${h.content}\n\n`);
+      } else if (h.type === "moderator_q") {
+        lines.push(`> 🎙 **主持人插问：** ${h.content}\n\n`);
+      } else if (h.type === "summary") {
+        lines.push(`\n### 📋 第 ${h.round} 轮进展快照\n\n${h.content}\n\n`);
       } else if (h.type === "consensus") {
         lines.push(`\n✅ **${h.content}**\n\n`);
       } else if (h.type === "report") {
