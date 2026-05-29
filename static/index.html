@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AgentdTalking</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=3">
 </head>
 <body>
 <div class="app">
@@ -91,10 +91,10 @@
     <div class="search-section">
       <div class="search-section-header">
         <span class="search-section-title">🔍 搜索增强（Tavily）</span>
-        <div class="toggle-switch" id="searchToggle">
+        <label class="toggle-switch">
           <input type="checkbox" id="searchEnabled">
           <span class="toggle-slider"></span>
-        </div>
+        </label>
       </div>
       <div id="searchConfig" class="search-config-body hidden">
         <div class="agent-field">
@@ -117,30 +117,30 @@
             <span>🎭 结构化阶段</span>
             <span class="adv-desc">按立场建立→交锋→收敛自动切换指令</span>
           </div>
-          <div class="toggle-switch" id="phasesToggle">
+          <label class="toggle-switch">
             <input type="checkbox" id="enablePhases" checked>
             <span class="toggle-slider"></span>
-          </div>
+          </label>
         </div>
         <div class="adv-row">
           <div class="adv-label">
             <span>🧠 私下思考（CoT）</span>
             <span class="adv-desc">发言前先做一轮隐藏推理，更深刻但 API 调用翻倍</span>
           </div>
-          <div class="toggle-switch" id="thinkToggle">
+          <label class="toggle-switch">
             <input type="checkbox" id="enableThink">
             <span class="toggle-slider"></span>
-          </div>
+          </label>
         </div>
         <div class="adv-row">
           <div class="adv-label">
             <span>🎙 主动主持人</span>
             <span class="adv-desc">每轮结束后检测讨论是否卡壳，自动插问</span>
           </div>
-          <div class="toggle-switch" id="moderatorToggle">
+          <label class="toggle-switch">
             <input type="checkbox" id="enableModerator" checked>
             <span class="toggle-slider"></span>
-          </div>
+          </label>
         </div>
         <div class="adv-row adv-row-input">
           <div class="adv-label">
@@ -235,6 +235,6 @@
   </main>
 
 </div>
-<script src="/static/app.js"></script>
+<script src="/static/app.js?v=3"></script>
 </body>
 </html>

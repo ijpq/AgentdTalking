@@ -53,22 +53,12 @@ class AgentdTalking {
       body.classList.toggle("hidden");
       arrow.innerHTML = body.classList.contains("hidden") ? "&#9654;" : "&#9660;";
     });
-    // Toggle switch clicks for advanced settings
-    ["phasesToggle", "thinkToggle", "moderatorToggle"].forEach((id) => {
-      document.getElementById(id).addEventListener("click", () => {
-        const cb = document.getElementById(id).querySelector("input[type=checkbox]");
-        cb.checked = !cb.checked;
-      });
-    });
-
     // Global LLM test button
     document.getElementById("testGlobalBtn").addEventListener("click", () => this.testGlobalLlm());
 
-    // Tavily toggle
-    document.getElementById("searchToggle").addEventListener("click", () => {
-      const cb = document.getElementById("searchEnabled");
-      cb.checked = !cb.checked;
-      document.getElementById("searchConfig").classList.toggle("hidden", !cb.checked);
+    // Tavily toggle — label natively toggles the checkbox; just react to the change
+    document.getElementById("searchEnabled").addEventListener("change", (e) => {
+      document.getElementById("searchConfig").classList.toggle("hidden", !e.target.checked);
     });
 
     // User input
