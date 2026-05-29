@@ -20,6 +20,7 @@ class AgentdTalking {
     this.reportEl       = null;
     this.reportText     = "";
     this.agentColorMap  = { "你": USER_COLOR };
+    this.autoScroll     = true;
 
     this._bindUI();
     this._checkForSession();
@@ -67,9 +68,36 @@ class AgentdTalking {
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); this.sendUserMessage(); }
     });
 
+    // Auto-scroll toggle
+    document.getElementById("autoScrollBtn").addEventListener("click", () => this._toggleAutoScroll());
+
+    // Detect manual scroll-up → pause auto-scroll; reaching bottom → resume
+    const msgs = document.getElementById("messages");
+    msgs.addEventListener("scroll", () => {
+      const atBottom = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 60;
+      if (atBottom && !this.autoScroll) this._setAutoScroll(true);
+      else if (!atBottom && this.autoScroll) this._setAutoScroll(false);
+    }, { passive: true });
+
     // Share / Export
     document.getElementById("shareBtn").addEventListener("click",  () => this.shareDiscussion());
     document.getElementById("exportBtn").addEventListener("click", () => this.exportDiscussion());
+  }
+
+  _toggleAutoScroll() { this._setAutoScroll(!this.autoScroll); }
+
+  _setAutoScroll(on) {
+    this.autoScroll = on;
+    const btn = document.getElementById("autoScrollBtn");
+    btn.classList.toggle("scroll-tracking", on);
+    btn.classList.toggle("scroll-paused", !on);
+    btn.title = on ? "点击暂停自动跟踪" : "点击恢复自动跟踪";
+    btn.textContent = on ? "⬇ 跟踪" : "⏸ 已暂停";
+    if (on) document.getElementById("messages").scrollTop = 9999;
+  }
+
+  _scrollBottom() {
+    if (this.autoScroll) document.getElementById("messages").scrollTop = 9999;
   }
 
   // ── Session / viewer mode ───────────────────────────────────────────────────
@@ -348,9 +376,10 @@ class AgentdTalking {
     this.currentTopic = config.topic;
 
     this._clearMessages();
+    this._setAutoScroll(true);
     document.getElementById("chatTopic").textContent = config.topic;
     document.getElementById("chatStatus").classList.remove("hidden");
-    document.getElementById("exportBtn").classList.add("hidden");
+    document.getElementById("exportBtn").classList.remove("hidden");
     document.getElementById("shareBtn").classList.add("hidden");
 
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
@@ -508,7 +537,7 @@ class AgentdTalking {
         }
         break;
     }
-    document.getElementById("messages").scrollTop = 9999;
+    this._scrollBottom();
   }
 
   // ── DOM builders ────────────────────────────────────────────────────────────
@@ -600,7 +629,7 @@ class AgentdTalking {
     this.reportText += token;
     const body = this.reportEl.querySelector(".report-body");
     body.innerHTML = this._renderMarkdown(this.reportText);
-    document.getElementById("messages").scrollTop = 9999;
+    this._scrollBottom();
   }
 
   _finishReport() {

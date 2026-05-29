@@ -569,6 +569,16 @@ input.adv-number {
   white-space: nowrap;
 }
 .header-action-btn:hover { background: rgba(255,255,255,.25); }
+.header-action-btn.scroll-tracking {
+  border-color: rgba(255,255,255,.3);
+  background: rgba(255,255,255,.08);
+  opacity: .75;
+}
+.header-action-btn.scroll-paused {
+  border-color: #fbbf24;
+  background: rgba(251,191,36,.18);
+  color: #fef3c7;
+}
 
 .messages {
   flex: 1;
