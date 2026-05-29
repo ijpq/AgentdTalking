@@ -247,7 +247,12 @@ async def _stream_llm(provider: str, base_url: str, api_key: str, model: str,
         }
         async with httpx.AsyncClient(timeout=60.0) as client:
             async with client.stream("POST", url, json=body, headers=headers) as resp:
-                resp.raise_for_status()
+                if resp.status_code != 200:
+                    raw = await resp.aread()
+                    detail = raw.decode("utf-8", "replace")[:600]
+                    raise RuntimeError(
+                        f"HTTP {resp.status_code} from {url}\n{detail}"
+                    )
                 async for line in resp.aiter_lines():
                     if not line.startswith("data: "):
                         continue
@@ -306,6 +311,13 @@ class LLMAgent:
                 merged[-1]["content"] += "\n\n" + msg["content"]
             else:
                 merged.append(msg.copy())
+
+        # Anthropic (and proxies that translate to it) require the conversation to
+        # start with a `user` turn and strictly alternate. If the transcript opens
+        # with this agent's own words, prepend a neutral user framing so the
+        # sequence is valid for every provider.
+        if merged and merged[0]["role"] == "assistant":
+            merged.insert(0, {"role": "user", "content": f"我们正在讨论：{topic}"})
 
         if not merged or merged[-1]["role"] == "assistant":
             # Agent opens (or speaks right after itself) — prompt for a substantive opener
