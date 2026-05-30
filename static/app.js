@@ -20,7 +20,8 @@ class AgentdTalking {
     this.reportEl       = null;
     this.reportText     = "";
     this.agentColorMap  = { "你": USER_COLOR };
-    this.autoScroll     = true;
+    this.autoScroll          = true;
+    this._programmaticScroll = false;  // true while we are the ones scrolling
 
     this._bindUI();
     this._checkForSession();
@@ -70,12 +71,14 @@ class AgentdTalking {
     // Auto-scroll toggle
     document.getElementById("autoScrollBtn").addEventListener("click", () => this._toggleAutoScroll());
 
-    // Detect manual scroll-up → pause auto-scroll; reaching bottom → resume
+    // Detect user-initiated scroll to pause / resume tracking.
+    // We ignore events we triggered ourselves via _programmaticScroll.
     const msgs = document.getElementById("messages");
     msgs.addEventListener("scroll", () => {
+      if (this._programmaticScroll) return;
       const atBottom = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 60;
-      if (atBottom && !this.autoScroll) this._setAutoScroll(true);
-      else if (!atBottom && this.autoScroll) this._setAutoScroll(false);
+      if (atBottom && !this.autoScroll)  this._setAutoScroll(true);
+      if (!atBottom && this.autoScroll)  this._setAutoScroll(false);
     }, { passive: true });
 
     // Share / Export
@@ -92,11 +95,22 @@ class AgentdTalking {
     btn.classList.toggle("scroll-paused", !on);
     btn.title = on ? "点击暂停自动跟踪" : "点击恢复自动跟踪";
     btn.textContent = on ? "⬇ 跟踪" : "⏸ 已暂停";
-    if (on) document.getElementById("messages").scrollTop = 9999;
+    if (on) this._doScroll();
+  }
+
+  _doScroll() {
+    // Mark as programmatic so the scroll listener doesn't treat it as a user action
+    this._programmaticScroll = true;
+    const el = document.getElementById("messages");
+    el.scrollTop = el.scrollHeight;
+    // Reset after the browser has processed the resulting scroll event(s)
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      this._programmaticScroll = false;
+    }));
   }
 
   _scrollBottom() {
-    if (this.autoScroll) document.getElementById("messages").scrollTop = 9999;
+    if (this.autoScroll) this._doScroll();
   }
 
   _toggleSidebar() {
@@ -925,42 +939,37 @@ class AgentdTalking {
   exportDiscussion() {
     if (!this.chatHistory.length) return;
     const topic = this.currentTopic || "讨论";
-    const HR    = "═".repeat(48);
-    const hr    = "─".repeat(48);
     const lines = [
-      `${HR}\n`,
-      `讨论记录\n`,
-      `${HR}\n`,
-      `话题：${topic}\n`,
-      `时间：${new Date().toLocaleString("zh-CN")}\n`,
-      `${HR}\n`,
+      `# 讨论记录\n\n`,
+      `**话题：** ${topic}  \n`,
+      `**时间：** ${new Date().toLocaleString("zh-CN")}\n\n`,
+      `---\n\n`,
     ];
     for (const h of this.chatHistory) {
       if (h.type === "round") {
-        lines.push(`\n── 第 ${h.number} 轮 ${"─".repeat(Math.max(0, 40 - String(h.number).length))}\n\n`);
+        lines.push(`\n---\n\n## 第 ${h.number} 轮\n\n`);
       } else if (h.type === "phase") {
-        lines.push(`【阶段切换】${h.content}\n\n`);
+        lines.push(`> 🎭 **阶段：** ${h.content}\n\n`);
       } else if (h.type === "system") {
-        lines.push(`（${h.content}）\n\n`);
+        lines.push(`> ${h.content}\n\n`);
       } else if (h.type === "moderator_q") {
-        lines.push(`【主持人】${h.content}\n\n`);
+        lines.push(`> 🎙 **主持人：** ${h.content}\n\n`);
       } else if (h.type === "summary") {
-        lines.push(`\n${hr}\n进展快照（第 ${h.round} 轮）\n${hr}\n${h.content}\n${hr}\n\n`);
+        lines.push(`\n### 📋 进展快照（第 ${h.round} 轮）\n\n${h.content}\n\n`);
       } else if (h.type === "consensus") {
-        lines.push(`\n【达成共识】${h.content}\n\n`);
+        lines.push(`\n✅ **${h.content}**\n\n`);
       } else if (h.type === "report") {
-        lines.push(`\n${HR}\n结论报告\n${HR}\n${h.content}\n${HR}\n`);
+        lines.push(`\n---\n\n# 📊 结论报告\n\n${h.content}\n\n`);
       } else if (h.type === "message" || h.type === "user") {
-        lines.push(`【${h.agent || "你"}】\n${h.content}\n\n`);
+        lines.push(`**${h.agent || "你"}：**\n\n${h.content}\n\n`);
       }
     }
-    // BOM prefix ensures correct UTF-8 display in Windows Notepad and Excel
-    const bom  = "﻿";
-    const blob = new Blob([bom + lines.join("")], { type: "text/plain;charset=utf-8" });
+    // UTF-8 BOM ensures correct display of Chinese in Windows editors
+    const blob = new Blob(["﻿" + lines.join("")], { type: "text/markdown;charset=utf-8" });
     const url  = URL.createObjectURL(blob);
     const safe = topic.replace(/[^一-龥\w]/g, "").slice(0, 12) || "discussion";
     const a    = Object.assign(document.createElement("a"), {
-      href: url, download: `讨论_${safe}_${Date.now()}.txt`,
+      href: url, download: `讨论_${safe}_${Date.now()}.md`,
     });
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
