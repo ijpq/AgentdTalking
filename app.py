@@ -157,9 +157,15 @@ class GenerateRosterRequest(BaseModel):
 
 # ── Shared helpers ────────────────────────────────────────────────────────────
 
+def _model_supports_temperature(model: str) -> bool:
+    """Claude 4.x+ deprecated the temperature parameter."""
+    return not bool(re.match(r"claude-[a-z]+-4", model.lower()))
+
+
 async def _llm_call(provider: str, base_url: str, api_key: str, model: str,
                     system: str, user: str, max_tokens: int = 1200) -> str:
     """Non-streaming single LLM call, returns text."""
+    use_temp = _model_supports_temperature(model)
     if provider == "anthropic":
         base = base_url.strip().rstrip("/") or "https://api.anthropic.com"
         url = f"{base}/v1/messages"
@@ -168,12 +174,14 @@ async def _llm_call(provider: str, base_url: str, api_key: str, model: str,
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
         }
-        body = {
+        body: dict = {
             "model": model,
             "max_tokens": max_tokens,
             "system": system,
             "messages": [{"role": "user", "content": user}],
         }
+        if use_temp:
+            body["temperature"] = 0.7
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(url, json=body, headers=headers)
             resp.raise_for_status()
@@ -190,6 +198,8 @@ async def _llm_call(provider: str, base_url: str, api_key: str, model: str,
                 {"role": "user", "content": user},
             ],
         }
+        if use_temp:
+            body["temperature"] = 0.7
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(url, json=body, headers=headers)
             resp.raise_for_status()
@@ -221,6 +231,7 @@ async def _stream_llm(provider: str, base_url: str, api_key: str, model: str,
                       system: str, messages: list[dict],
                       max_tokens: int = 900, temperature: float = 0.8) -> AsyncGenerator[str, None]:
     """Stream tokens from either an Anthropic or OpenAI-compatible endpoint."""
+    use_temp = _model_supports_temperature(model)
     if provider == "anthropic":
         from anthropic import AsyncAnthropic
         kwargs = {"api_key": api_key, "max_retries": 3, "timeout": 60.0}
@@ -228,23 +239,26 @@ async def _stream_llm(provider: str, base_url: str, api_key: str, model: str,
         if url:
             kwargs["base_url"] = url
         client = AsyncAnthropic(**kwargs)
-        async with client.messages.stream(
-            model=model, max_tokens=max_tokens, system=system,
-            messages=messages, temperature=temperature,
-        ) as stream:
+        stream_kwargs: dict = dict(
+            model=model, max_tokens=max_tokens, system=system, messages=messages
+        )
+        if use_temp:
+            stream_kwargs["temperature"] = temperature
+        async with client.messages.stream(**stream_kwargs) as stream:
             async for text in stream.text_stream:
                 yield text
     else:
         base = base_url.strip().rstrip("/") or "https://api.openai.com/v1"
         url = f"{base}/chat/completions"
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-        body = {
+        body: dict = {
             "model": model,
             "messages": [{"role": "system", "content": system}] + messages,
             "max_tokens": max_tokens,
-            "temperature": temperature,
             "stream": True,
         }
+        if use_temp:
+            body["temperature"] = temperature
         async with httpx.AsyncClient(timeout=60.0) as client:
             async with client.stream("POST", url, json=body, headers=headers) as resp:
                 if resp.status_code != 200:
