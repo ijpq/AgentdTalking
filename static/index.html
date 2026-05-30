@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AgentdTalking</title>
-  <link rel="stylesheet" href="/static/style.css?v=4">
+  <link rel="stylesheet" href="/static/style.css?v=5">
 </head>
 <body>
 <div class="app">
@@ -161,13 +161,14 @@
   <!-- ══ CHAT ══ -->
   <main class="chat-area">
     <div class="chat-header">
+      <button id="sidebarReveal" class="sidebar-reveal-btn hidden" title="展开面板">&#9776;</button>
       <span id="chatTopic">配置左侧选项，点击「开始讨论」</span>
       <div class="chat-header-right">
         <span id="viewerBanner" class="viewer-badge hidden">👁 观看中</span>
         <span id="chatStatus" class="chat-status hidden"></span>
         <button id="autoScrollBtn" class="header-action-btn scroll-tracking" title="点击暂停自动跟踪">⬇ 跟踪</button>
         <button id="shareBtn" class="header-action-btn hidden" title="复制链接，分享此讨论">📋 分享</button>
-        <button id="exportBtn" class="header-action-btn hidden" title="导出讨论记录为 Markdown">📥 导出</button>
+        <button id="exportBtn" class="header-action-btn hidden" title="导出讨论记录为文本文件">📥 导出</button>
       </div>
     </div>
 
@@ -236,6 +237,6 @@
   </main>
 
 </div>
-<script src="/static/app.js?v=4"></script>
+<script src="/static/app.js?v=5"></script>
 </body>
 </html>

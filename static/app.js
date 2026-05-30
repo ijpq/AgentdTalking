@@ -34,9 +34,8 @@ class AgentdTalking {
   _bindUI() {
     document.getElementById("addAgent").addEventListener("click", () => this.addAgent());
     document.getElementById("startBtn").addEventListener("click", () => this.toggle());
-    document.getElementById("toggleSidebar").addEventListener("click", () => {
-      document.getElementById("sidebar").classList.toggle("collapsed");
-    });
+    document.getElementById("toggleSidebar").addEventListener("click", () => this._toggleSidebar());
+    document.getElementById("sidebarReveal").addEventListener("click",  () => this._toggleSidebar());
     document.getElementById("aiGenBtn").addEventListener("click", () => this.generateRoster());
 
     // Global LLM collapsible
@@ -98,6 +97,13 @@ class AgentdTalking {
 
   _scrollBottom() {
     if (this.autoScroll) document.getElementById("messages").scrollTop = 9999;
+  }
+
+  _toggleSidebar() {
+    const sidebar = document.getElementById("sidebar");
+    const reveal  = document.getElementById("sidebarReveal");
+    sidebar.classList.toggle("collapsed");
+    reveal.classList.toggle("hidden", !sidebar.classList.contains("collapsed"));
   }
 
   // ── Session / viewer mode ───────────────────────────────────────────────────
@@ -919,36 +925,42 @@ class AgentdTalking {
   exportDiscussion() {
     if (!this.chatHistory.length) return;
     const topic = this.currentTopic || "讨论";
+    const HR    = "═".repeat(48);
+    const hr    = "─".repeat(48);
     const lines = [
-      `# 讨论记录\n\n`,
-      `**话题：** ${topic}\n\n`,
-      `**时间：** ${new Date().toLocaleString("zh-CN")}\n\n`,
-      `---\n\n`,
+      `${HR}\n`,
+      `讨论记录\n`,
+      `${HR}\n`,
+      `话题：${topic}\n`,
+      `时间：${new Date().toLocaleString("zh-CN")}\n`,
+      `${HR}\n`,
     ];
     for (const h of this.chatHistory) {
       if (h.type === "round") {
-        lines.push(`\n---\n\n**第 ${h.number} 轮**\n\n`);
+        lines.push(`\n── 第 ${h.number} 轮 ${"─".repeat(Math.max(0, 40 - String(h.number).length))}\n\n`);
       } else if (h.type === "phase") {
-        lines.push(`\n> 🔄 阶段：${h.content}\n\n`);
+        lines.push(`【阶段切换】${h.content}\n\n`);
       } else if (h.type === "system") {
-        lines.push(`> ${h.content}\n\n`);
+        lines.push(`（${h.content}）\n\n`);
       } else if (h.type === "moderator_q") {
-        lines.push(`> 🎙 **主持人插问：** ${h.content}\n\n`);
+        lines.push(`【主持人】${h.content}\n\n`);
       } else if (h.type === "summary") {
-        lines.push(`\n### 📋 第 ${h.round} 轮进展快照\n\n${h.content}\n\n`);
+        lines.push(`\n${hr}\n进展快照（第 ${h.round} 轮）\n${hr}\n${h.content}\n${hr}\n\n`);
       } else if (h.type === "consensus") {
-        lines.push(`\n✅ **${h.content}**\n\n`);
+        lines.push(`\n【达成共识】${h.content}\n\n`);
       } else if (h.type === "report") {
-        lines.push(`\n---\n\n# 📊 结论报告\n\n${h.content}\n\n`);
+        lines.push(`\n${HR}\n结论报告\n${HR}\n${h.content}\n${HR}\n`);
       } else if (h.type === "message" || h.type === "user") {
-        lines.push(`**${h.agent || "你"}：**\n\n${h.content}\n\n`);
+        lines.push(`【${h.agent || "你"}】\n${h.content}\n\n`);
       }
     }
-    const blob = new Blob([lines.join("")], { type: "text/markdown;charset=utf-8" });
+    // BOM prefix ensures correct UTF-8 display in Windows Notepad and Excel
+    const bom  = "﻿";
+    const blob = new Blob([bom + lines.join("")], { type: "text/plain;charset=utf-8" });
     const url  = URL.createObjectURL(blob);
     const safe = topic.replace(/[^一-龥\w]/g, "").slice(0, 12) || "discussion";
     const a    = Object.assign(document.createElement("a"), {
-      href: url, download: `讨论_${safe}_${Date.now()}.md`,
+      href: url, download: `讨论_${safe}_${Date.now()}.txt`,
     });
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);

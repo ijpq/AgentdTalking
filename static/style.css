@@ -508,14 +508,28 @@ input.adv-number {
   background: var(--chat-bg);
 }
 
+.sidebar-reveal-btn {
+  background: rgba(255,255,255,.18);
+  border: none;
+  color: #fff;
+  width: 32px; height: 32px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 17px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background .15s;
+}
+.sidebar-reveal-btn:hover { background: rgba(255,255,255,.3); }
+
 .chat-header {
-  padding: 14px 24px;
+  padding: 14px 16px 14px 20px;
   background: linear-gradient(135deg, #3949ab 0%, #5c6bc0 100%);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   box-shadow: 0 2px 8px rgba(0,0,0,.12);
   flex-shrink: 0;
 }
