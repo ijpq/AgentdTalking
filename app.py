@@ -158,7 +158,7 @@ class GenerateRosterRequest(BaseModel):
 # ── Shared helpers ────────────────────────────────────────────────────────────
 
 async def _llm_call(provider: str, base_url: str, api_key: str, model: str,
-                    system: str, user: str) -> str:
+                    system: str, user: str, max_tokens: int = 1200) -> str:
     """Non-streaming single LLM call, returns text."""
     if provider == "anthropic":
         base = base_url.strip().rstrip("/") or "https://api.anthropic.com"
@@ -170,11 +170,11 @@ async def _llm_call(provider: str, base_url: str, api_key: str, model: str,
         }
         body = {
             "model": model,
-            "max_tokens": 1200,
+            "max_tokens": max_tokens,
             "system": system,
             "messages": [{"role": "user", "content": user}],
         }
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(url, json=body, headers=headers)
             resp.raise_for_status()
             return resp.json()["content"][0]["text"]
@@ -184,13 +184,13 @@ async def _llm_call(provider: str, base_url: str, api_key: str, model: str,
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
         body = {
             "model": model,
-            "max_tokens": 1200,
+            "max_tokens": max_tokens,
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
         }
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(url, json=body, headers=headers)
             resp.raise_for_status()
             return resp.json()["choices"][0]["message"]["content"]
@@ -829,6 +829,23 @@ async def ws_endpoint(ws: WebSocket, session: str = None):
 
 # ── REST endpoints ────────────────────────────────────────────────────────────
 
+def _salvage_agents(text: str) -> list[dict]:
+    """Recover complete {name, prompt} objects from a truncated roster JSON.
+
+    Each persona is a self-contained object, so even if the final one was cut
+    off mid-stream we can still return the earlier, fully-formed ones.
+    """
+    agents = []
+    for m in re.finditer(r"\{[^{}]*\}", text, re.DOTALL):
+        try:
+            obj = json.loads(m.group())
+        except json.JSONDecodeError:
+            continue
+        if isinstance(obj, dict) and obj.get("name") and obj.get("prompt"):
+            agents.append({"name": obj["name"], "prompt": obj["prompt"]})
+    return agents
+
+
 @app.post("/api/generate-roster")
 async def generate_roster(req: GenerateRosterRequest):
     if not req.api_key:
@@ -866,7 +883,8 @@ async def generate_roster(req: GenerateRosterRequest):
 {{"agents": [{{"name": "姓名", "prompt": "你是[姓名]，[年龄]岁，[职业背景]。[性格与思考风格]。在这个话题上，你坚持认为[立场]，并且会反对[对立观点]，因为[理由]。[说话风格]。"}}]}}"""
 
     try:
-        text = await _llm_call(req.provider, req.base_url, req.api_key, req.model, system, user_prompt)
+        text = await _llm_call(req.provider, req.base_url, req.api_key, req.model,
+                               system, user_prompt, max_tokens=4000)
         text = text.strip()
         # Strip markdown code fences if present
         text = re.sub(r"^```(?:json)?\s*", "", text)
@@ -874,13 +892,24 @@ async def generate_roster(req: GenerateRosterRequest):
         m = re.search(r"\{.*\}", text, re.DOTALL)
         if m:
             text = m.group()
-        data = json.loads(text)
-        agents = data.get("agents", [])
+        try:
+            data = json.loads(text)
+            agents = data.get("agents", [])
+        except json.JSONDecodeError:
+            # Output was likely truncated mid-JSON — salvage whatever complete
+            # agent objects we can recover so the user still gets a usable roster.
+            agents = _salvage_agents(text)
+            if not agents:
+                raise
         if not agents:
             return {"success": False, "message": "模型未返回参与者列表"}
         return {"success": True, "agents": agents}
     except json.JSONDecodeError:
-        return {"success": False, "message": f"模型返回的内容无法解析为 JSON：{text[:200]}"}
+        tail = text[-200:] if len(text) > 200 else text
+        return {"success": False, "message": (
+            "模型返回的内容无法解析为 JSON（可能被截断或夹带了多余文字）。"
+            f"\n结尾片段：…{tail}"
+        )}
     except Exception as e:
         return {"success": False, "message": str(e)}
 
